@@ -1,0 +1,6 @@
+@TenExCards_HostAddress = http://localhost:5158
+
+GET {{TenExCards_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
