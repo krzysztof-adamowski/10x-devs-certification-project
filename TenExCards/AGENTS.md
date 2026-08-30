@@ -32,15 +32,31 @@ provider was ever chosen. Ask before picking one.
   scope every query to the owning account.
 - **Never let the form freeze.** Acknowledge a submission within 2s with continuous visible
   progress; generation is bounded at 30s.
+- **Never use FluentAssertions.** Assertions use AwesomeAssertions; see `## Testing`.
 
-Each is a recorded decision, not an omission — see `## Non-Goals` and `## Non-Functional
-Requirements` in `@../context/foundation/prd.md`.
+Each is a recorded decision, not an omission — see `## Non-Goals` and
+`## Non-Functional Requirements` in `@../context/foundation/prd.md`.
 
 ## Working in this directory
 
 Agent sessions are rooted at the repo root, so `dotnet` needs `TenExCards/` — `cd` here
-or pass `--project TenExCards/TenExCards.csproj`. There is no test project; add one
-before the first feature that touches generation, triage, or persistence.
+or pass `--project TenExCards/TenExCards.csproj`.
+
+## Testing
+
+No test project exists. Create `TenExCards.Tests` (xUnit) with the first feature that touches
+generation, triage, or persistence, and put the test in the same change as the code.
+
+Assertions use **AwesomeAssertions**. FluentAssertions v8 moved to a paid commercial licence;
+AwesomeAssertions is the Apache-2.0 fork of v7 with the same API, so the training-data reflex
+compiles cleanly and introduces a licensing problem silently.
+
+Test the deterministic rules, never the model's prose. Stub the LLM client — it is the only
+test double — and assert on what the code does with a response: over-length submissions are
+refused before generation begins, duplicate candidates are dropped, each candidate is triaged
+exactly once, and every query is scoped to the owning account. Card quality is judged by the
+learner at triage, not by a test; an assertion against generated card text is a flaky test,
+not a quality gate.
 
 ## Conventions
 
