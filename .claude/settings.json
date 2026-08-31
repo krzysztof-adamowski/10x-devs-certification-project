@@ -4,7 +4,20 @@
       "Bash(npm *)",
       "Bash(npx *)",
       "Bash(node *)",
-	  "Bash(dotnet package*)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet --info)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet --list-runtimes)",
+      "Bash(dotnet build*)",
+      "Bash(dotnet publish*)",
+      "Bash(dotnet restore*)",
+      "Bash(dotnet clean*)",
+      "Bash(dotnet package list*)",
+      "Bash(dotnet package search*)",
+      "Bash(dotnet sln list*)",
+      "Bash(dotnet nuget list source*)",
+      "Bash(dotnet tool list*)",
+      "Bash(dotnet workload list*)",
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git diff *)",
@@ -13,6 +26,12 @@
       "Bash(git branch *)",
       "Bash(git checkout *)",
       "Bash(git stash *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
       "Read",
       "Edit",
       "Write"
@@ -21,10 +40,26 @@
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(git push *)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(powershell.exe *)",
+      "Bash(pwsh *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(bash -c *)",
+      "Bash(sh -c *)",
+      "Bash(sed *)",
+      "Bash(awk *)",
+      "Bash(find *)",
+      "Bash(touch *)"
     ],
     "deny": [
-      "Bash(rm -rf *)"
+      "Bash(rm -rf *)",
+      "Bash(az * delete)",
+      "Bash(az * delete *)",
+      "Bash(az webapp deployment slot swap *)",
+      "Bash(az webapp config appsettings set *)",
+      "Bash(dotnet nuget push*)",
+      "Bash(dotnet ef database drop*)"
     ]
   }
 }
