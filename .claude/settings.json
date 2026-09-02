@@ -1,9 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm *)",
-      "Bash(npx *)",
-      "Bash(node *)",
+      "Bash(az * show *)",
+      "Bash(az * list *)",
+      "Bash(az deployment group what-if *)",
+      "Bash(az webapp log tail *)",
+      "Bash(az webapp log download *)",
       "Bash(dotnet --version)",
       "Bash(dotnet --info)",
       "Bash(dotnet --list-sdks)",
@@ -37,6 +39,11 @@
       "Write"
     ],
     "ask": [
+      "Bash(az deployment group create *)",
+      "Bash(az webapp deploy *)",
+      "Bash(az webapp config set *)",
+      "Bash(az webapp config appsettings set *)",
+      "Bash(az webapp config appsettings list *)",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(git push *)",
@@ -57,7 +64,8 @@
       "Bash(az * delete)",
       "Bash(az * delete *)",
       "Bash(az webapp deployment slot swap *)",
-      "Bash(az webapp config appsettings set *)",
+      "Bash(az webapp deployment list-publishing-profiles *)",
+      "Bash(az account get-access-token *)",
       "Bash(dotnet nuget push*)",
       "Bash(dotnet ef database drop*)"
     ]

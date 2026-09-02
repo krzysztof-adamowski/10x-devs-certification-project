@@ -1,5 +1,10 @@
-// TenExCards — App Service (Linux, B1) + plan, declarative equivalent of the
-// 2026-08-31 deploy recorded in context/deployment/deploy-plan.md.
+// TenExCards — App Service (Linux, B1) + plan. This template is the SOURCE OF
+// TRUTH for this app's infrastructure. The 2026-08-31 CLI run recorded in
+// context/deployment/deploy-plan.md was the bootstrap; this file is
+// authoritative from there on, and it declares more than that run typed by hand
+// (clientAffinityEnabled, http20Enabled). Anything set imperatively that this
+// template does not declare is drift — except appSettings, deliberately
+// excluded for the reason given further down.
 //
 // Deploy:
 //   az group create --name rg-tenexcards-plc --location polandcentral

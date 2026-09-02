@@ -68,12 +68,15 @@ Nothing below runs until `az account show` returns a subscription.
 Variables (PowerShell). `$PUB` is the stock `dotnet publish` output location; both paths sit
 under `bin/`, which `[Bb]in/` already ignores.
 
+> **SUPERSEDED — see Deviations.** The run landed in `rg-tenexcards-plc` / `polandcentral`.
+> West Europe and North Europe both failed at create time on this subscription.
+
 ```powershell
 $RG   = "rg-tenexcards-weu"
 $LOC  = "westeurope"
 $PLAN = "asp-tenexcards-linux"
 $APP  = "tenexcards-ka"
-$PROJ = "C:\Users\Krzychu\Documents\10xDevs\TenExCards"
+$PROJ = (Resolve-Path "./TenExCards").Path   # run from the repo root
 $PUB  = Join-Path $PROJ "bin\Release\net10.0\publish"
 $ZIP  = Join-Path $PROJ "bin\publish.zip"
 ```
@@ -101,11 +104,15 @@ az webapp check-name --name $APP --query "{available:nameAvailable, reason:messa
 az group create --name $RG --location $LOC
 az appservice plan create --name $PLAN --resource-group $RG --location $LOC `
   --is-linux true --sku B1 --number-of-workers 1 --enriched-errors true
-az appservice plan show -g $RG -n $PLAN --query "{kind:kind, reserved:reserved}" -o table
+az appservice plan show -g $RG -n $PLAN --query "{kind:kind, reserved:properties.reserved}" -o table
 ```
 
 `reserved` must be `true` — that is the real signal the plan is Linux. `--is-linux` is passed
 explicitly rather than trusting a recently-changed default.
+
+> Corrected 2026-09-01: this query previously read `reserved:reserved`, which returns `null` —
+> the field sits under `properties`, not at the root of the CLI's output object. The assertion
+> this step calls load-bearing was silently returning nothing, which reads as *not* Linux.
 
 **3. Create the web app, HTTPS enforced at the platform.**
 
@@ -120,7 +127,12 @@ az webapp config show -g $RG -n $APP --query linuxFxVersion -o tsv   # expect DO
 ```powershell
 az webapp config set -g $RG -n $APP --always-on true --min-tls-version 1.2 --ftps-state Disabled
 az webapp log config -g $RG -n $APP --docker-container-logging filesystem --level information
+az webapp log config -g $RG -n $APP --application-logging filesystem --level information
 ```
+
+> Corrected 2026-09-01: this was a single call. `--level` only takes effect alongside
+> `--application-logging`, so the first call alone left `applicationLogs` **Off** (deviation 3).
+> Two calls are required.
 
 Deliberately **not** set, each for a specific reason:
 - `ASPNETCORE_HTTPS_PORT` — unnecessary; combined with disabled forwarded headers it produces a
@@ -178,6 +190,8 @@ the `dotnet publish -c Release` default (with `--src-path ./bin/publish.zip`), a
 `westeurope` as the chosen region (`## Getting Started` never named one). No `.gitignore`
 change.
 
+> **SUPERSEDED — see Deviations.** The region recorded was `polandcentral`, not `westeurope`.
+
 ## Verification
 
 ```powershell
@@ -216,7 +230,8 @@ az group delete --name $RG --yes --no-wait
 
 Everything provisioned lives in one resource group specifically so this is a single command.
 Worth running if the deploy is only a pipeline proof and Blazor work is days away — B1 bills
-~$12.41/mo whether or not anything uses it.
+~$13.15/mo whether or not anything uses it (Poland Central list price, verified
+2026-09-01 via the Azure retail price API).
 
 ## Critical files
 
@@ -268,17 +283,40 @@ Settings applied: `--https-only true`, `--always-on true`, `--min-tls-version 1.
    framing, though — these are **Free Trial constraints, not Azure-wide facts**. Region access and
    quota increases are both free support tickets, generally granted only on Pay-As-You-Go; a paid
    subscription may hit neither block. West Europe is closed to *new* customers, not broken.
-2. **Three plan commands do not exist / do not parse on Azure CLI 2.89.1.**
+2. **Two plan commands do not exist / do not parse on Azure CLI 2.89.1.**
    - `az webapp list-runtimes --query "[?starts_with(@,'DOTNETCORE')]"` — the command now returns
      objects, not strings; JMESPath `starts_with()` throws. Used `grep -i dotnet`.
    - `az webapp check-name` — not a command. Used the ARM REST endpoint
      `POST /providers/Microsoft.Web/checknameavailability`.
-   - `az appservice plan create --enriched-errors` — not a valid flag on that command (it is a
-     `az webapp deploy` flag). Dropped.
+
+   > Corrected 2026-09-01: a third bullet here claimed `az appservice plan create
+   > --enriched-errors` was not a valid flag on that command. That was **wrong** —
+   > `az appservice plan create --help` on 2.89.1 documents it, and it is precisely the
+   > context-enriched diagnostic for Linux plan-create failures, i.e. the West Europe and North
+   > Europe blocks in deviation 1 above. It should have been kept; step 2 already passes it.
 3. **`az webapp log config --level information` alone left `applicationLogs` Off.** `--level`
    only takes effect alongside `--application-logging`; a second call was needed.
 4. **`-SkipHttpErrorCheck` is PowerShell 7+**, unavailable in Windows PowerShell 5.1. Status-code
    checks were run with `curl -o /dev/null -w '%{http_code}'` instead.
+5. **Two ARM template deployments ran after the zip push and were not recorded here until
+   2026-09-01.** Recovered with `az deployment group list -g rg-tenexcards-plc`:
+
+   | Name | Mode | Result | Timestamp |
+   |---|---|---|---|
+   | `drift-probe` | Incremental | Succeeded | 2026-08-31T20:49:45Z |
+   | `restructure-probe` | Incremental | Succeeded | 2026-08-31T20:57:12Z |
+
+   These applied `infra/main.bicep` to the live app twice, and they are the deployments that
+   cleared `properties.freeOfferExpirationTime` on the plan. `infra/main.bicep` is the source of
+   truth for this app's infrastructure, so its declared state — which includes
+   `clientAffinityEnabled` and `http20Enabled`, never set by the CLI commands above — is
+   authoritative over anything in this record. The CLI run was the bootstrap.
+6. **`az` auto-registered the `Microsoft.Web` resource provider on the subscription** during the
+   first `az appservice plan create`, without prompting. Normal CLI behaviour and permanent, but
+   it is a subscription-level change nobody typed. Confirmed still `Registered` on 2026-09-01 via
+   `az provider show --namespace Microsoft.Web --query registrationState`. Recorded here because
+   it is the only mutation from this deploy that lives outside the resource group, so
+   `az group delete` in `## Teardown` does **not** undo it.
 
 ## Plan claims confirmed by the run
 
@@ -320,13 +358,18 @@ middleware."*
 
 ## Open item for the human
 
-The subscription is **Free Trial** (`quotaId: FreeTrial_2014-09-01`) with `spendingLimit: On`.
+The subscription is **Free Trial** (`quotaId: FreeTrial_2014-09-01`) with `spendingLimit: On`,
+re-verified 2026-09-01 with
+`az rest --method get --url "https://management.azure.com/subscriptions/<id>?api-version=2022-12-01"`
+— note `az account show` and `az account list` both return `null` for `subscriptionPolicies`, so
+that is not the command to check this with. The same GET reports a `freetier` promotion running
+to 2027-09-30. See `## Budget Posture` in `infrastructure.md` for what this permits.
 This is a **deliberate choice** — the project runs on free course credits — so nothing below is a
 defect to fix now. It matters only for whoever takes this past the course.
 
 B1 provisions against trial credit today, but when the credit is exhausted Azure **disables the
 resources rather than billing** — the site stops rather than costing money. Upgrade to
-Pay-As-You-Go before anything depends on this staying up; B1 bills ~$12.41/mo once on PAYG.
+Pay-As-You-Go before anything depends on this staying up; B1 bills ~$13.15/mo once on PAYG (Poland Central, verified 2026-09-01).
 Upgrading is also the precondition for requesting West Europe access or a North Europe quota
 increase, if either region is ever wanted.
 
