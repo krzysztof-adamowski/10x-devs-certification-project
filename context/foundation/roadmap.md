@@ -59,7 +59,7 @@ reason to exist.
 | ID   | Change ID                | Outcome (user can …)                                             | Prerequisites    | PRD refs                                               | Status   |
 | ---- | ------------------------ | ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------ | -------- |
 | F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | in-progress |
-| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | ready    |
+| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | proposed    |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | proposed |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | proposed |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | proposed |
@@ -121,9 +121,7 @@ rather than reopening them.
 - **Prerequisites:** —
 - **Parallel with:** F-02
 - **Blockers:** —
-- **Unknowns:**
-  - Should the application keep its own HTTPS redirect, or rely entirely on the platform's
-    HTTPS-only enforcement? — Owner: user. Block: no.
+- **Unknowns:** — (the HTTPS-redirect question is resolved; see Open Roadmap Question 4)
 - **Risk:** Sequenced first because nothing renders without it. The failure mode is scope creep —
   this establishes the host and nothing else, and every slice still builds its own surface. The
   secondary risk is carrying the scaffold's incidental decisions forward untouched while rewriting
@@ -318,10 +316,18 @@ to copy into issues, but it must not duplicate the detailed roadmap body.
 3. **How long is the inactivity window before a signed-in session expires?** Carried verbatim from the
    PRD's `## Open Questions`. Owner: user. Block: `S-01`. The PRD classes it as a planning detail
    rather than a product decision, so it does not gate the roadmap.
-4. **Should the application keep its own HTTPS redirect, or rely entirely on the platform's HTTPS-only
-   enforcement?** Recorded as explicitly undecided: removing it couples the app's HTTPS posture to
-   that platform setting staying on in every environment it is ever deployed to, so it should be a
-   deliberate change rather than a drive-by during a rewrite. Owner: user. Block: `F-01`.
+4. ~~**Should the application keep its own HTTPS redirect, or rely entirely on the platform's
+   HTTPS-only enforcement?**~~ **Resolved 2026-09-08 in `F-01`:** rely entirely on the platform.
+   `app.UseHttpsRedirection()` was removed from `Program.cs`, deliberately rather than as a
+   drive-by — the .NET 10 Blazor template ships that line itself, so this is a considered deletion
+   from freshly generated code. The coupling concern that kept the question open is answered by
+   *where* the enforcement is declared: `infra/main.bicep:96` sets `httpsOnly: true`, so it lives
+   in the infrastructure source of truth rather than in a CLI flag someone once typed. `UseHsts()`
+   is kept, because HSTS and `httpsOnly` cover different moments — the platform redirects after a
+   plain-HTTP request has been made, HSTS stops the browser making it. Verified on the deployed
+   instance: the `HttpsRedirectionMiddleware[3]` startup warning is gone. Anyone deploying this app
+   to an environment that cannot enforce HTTPS at the platform inherits the obligation to
+   reinstate it. Owner: user. Was blocking: `F-01`.
 
 ## Parked
 

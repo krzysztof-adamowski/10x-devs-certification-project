@@ -7,15 +7,14 @@ platform research and the risk register are in `../context/foundation/infrastruc
 
 ## The scaffold is not the target
 
-**Delete this whole section once Blazor Server and Identity are in place** — it describes a
-transient state and goes stale the moment it is acted on.
+**Delete this whole section once Identity is in place** — it describes a transient state and goes
+stale the moment it is acted on. Blazor Server landed on 2026-09-08; what remains is the rest.
 
-This directory is still unmodified `dotnet new webapi` output — minimal APIs and a
-`WeatherForecast` sample in `Program.cs`. It does not reflect the chosen architecture.
-Delete the sample when you first touch it, and build toward:
+The project is a Blazor Web App with **per-page interactivity**: pages are static-rendered unless
+they carry `@rendermode InteractiveServer`. `Components/Pages/CircuitCheck.razor` is the worked
+example of that annotation and exists only to prove the circuit is live; `S-01` deletes it. Still
+missing:
 
-- **Blazor Server** for the UI — not minimal APIs, not a separate SPA. One project, no
-  hand-maintained API contract.
 - **ASP.NET Core Identity** for email + password accounts. Not scaffolded.
 - An **LLM client** for generation. Not scaffolded; no package or configuration exists.
 
@@ -56,9 +55,14 @@ A new fact goes in one or the other, never both:
 
 - **Never run `az webapp up`.** It is deprecated. Deploy with
   `az webapp deploy --src-path <zip> --type zip`.
-- **Never zip the publish folder itself.** Assert the archive's first entry is `TenExCards.dll`,
-  not `publish/TenExCards.dll`. The trailing `*` in `Compress-Archive -Path <publish>/*` is
-  load-bearing; a nested zip deploys **successfully** and then 503s.
+- **Never upload an archive that has not passed all three shape assertions:** `TenExCards.dll`
+  present at the archive root, no entry prefixed `publish/`, and no entry containing a backslash.
+  Each failure deploys **successfully** and then breaks at runtime — a nested zip 503s, and
+  backslash entries serve a page whose every asset 404s. A passing deploy command is not evidence.
+  **Do not build the archive with `Compress-Archive`** — under Windows PowerShell 5.1 it writes
+  Windows separators into every nested entry. Build it entry-by-entry with names normalised to
+  `/`, or produce it on Linux. Mechanism and measurements: the 2026-09-08 record in
+  `../context/deployment/deploy-plan.md`.
 - **Never provision the F1 App Service tier.** It caps WebSockets at five connections and has no
   Always On. B1 Linux is the floor.
 - **Never ship Identity without persisting Data Protection keys.** Keys are **not** persistent
@@ -109,21 +113,34 @@ on every container restart, auth cookies and antiforgery tokens break at **one**
 on any deploy or platform recycle. Scaling out only adds a second way to hit the same failure.
 Persist the keys when Identity lands, not when the worker count changes.
 
-### HTTPS: why neither environment variable belongs here
+### HTTPS: what enforces it, and what must never be set
 
-The Linux .NET container supplies `X-Forwarded-Proto`, so `Request.IsHttps` is already correct
-and `UseHttpsRedirection()` finds no port and no-ops. Setting the two variables together produces
-a `307` to the request's own URL — an infinite redirect; the port alone is harmless. Measurements
-are in `../context/deployment/deploy-plan.md` under `## Deliberately not set`.
+The Linux .NET container supplies `X-Forwarded-Proto`, so `Request.IsHttps` is already correct.
+Setting the two variables together produces a `307` to the request's own URL — an infinite
+redirect; the port alone is harmless. Measurements are in
+`../context/deployment/deploy-plan.md` under `## Deliberately not set`.
 
-HTTPS is enforced by `--https-only` at the platform, which makes `UseHttpsRedirection()` in
-`Program.cs` redundant. **Whether to delete it is undecided** — it is still present. Removing it
-couples the app's HTTPS posture to `--https-only` staying on in every environment it is ever
-deployed to, so make that a deliberate change, not a drive-by.
+**`UseHttpsRedirection()` was removed on 2026-09-08 and is not coming back.** The platform is now
+the sole enforcement point, and that is safe because `infra/main.bicep:96` declares
+`httpsOnly: true` — the enforcement lives in the infrastructure source of truth, not in a CLI flag
+someone once typed by hand. Anyone deploying this app somewhere else owns that guarantee: reinstate
+redirection in the application only if the new environment cannot make it at the platform, and
+record the decision here.
 
 The startup line `HttpsRedirectionMiddleware[3] Failed to determine the https port for redirect`
-comes from App Service's internal plain-HTTP warm-up probe. It appears once at startup, **not**
-once per user request, and is not a defect.
+came from App Service's internal plain-HTTP warm-up probe hitting that middleware. **It no longer
+appears** — confirmed absent from the 2026-09-08 startup log. Kept here because it is documented as
+a non-defect elsewhere: if you see it again, the middleware is back.
+
+**`UseHsts()` is present, deliberately, and is new production behaviour** compared with the
+scaffold. It is not drift. HSTS and `httpsOnly` cover different moments — `httpsOnly` redirects at
+the edge *after* a plain-HTTP request has been made, while HSTS tells the browser not to make that
+request next time. The default options exclude `localhost`, so local development is unaffected, and
+the header scopes to the exact host without `includeSubDomains`. One practical consequence: the
+default 30-day `max-age` means plain HTTP cannot be tested against a hostname for 30 days after its
+first response. Unverified either way, and the decision does not depend on it: whether
+`azurewebsites.net` is already covered by browser HSTS preloading, which would make the header a
+no-op on *this* host while still mattering on a custom domain.
 
 ### what-if: telling a real deletion from a phantom
 
@@ -166,5 +183,13 @@ Card quality is the product, and it is specified rather than delegated: read
 A candidate must test one load-bearing claim, be reformulated rather than copied, admit one
 defensible answer, and not duplicate another card in the set.
 
-Commits so far track course milestones (`Completed M1L3`). Ask which convention to use for
-product commits rather than extending that style.
+Product commits use **Conventional Commits**, subject `<type>(<change-id>): <phase title> (p<N>)`
+— for example `feat(blazor-server-shell): Blazor Server host replaces the API scaffold (p1)`. The
+scope is the change-id from `../context/changes/<change-id>/`, and `(p<N>)` is the plan phase, so a
+commit traces back to the plan step that authorised it. Types in use: `feat`, `fix`, `chore`,
+`refactor`, `docs`. The body says *why*, then lists the touched files.
+
+Commits predating 2026-09-08 track course milestones (`Completed M1L3`) instead. Do not extend that
+style, and do not rewrite them.
+
+Do **not** add `Co-Authored-By` trailers.

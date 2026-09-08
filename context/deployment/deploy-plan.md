@@ -157,6 +157,12 @@ pile; that would mean a self-contained publish, which the csproj rules out.
 
 **6. Flat zip — contents at the archive root.**
 
+> **Superseded 2026-09-08 — do not follow this step as written.** Both the command and the
+> assertion below are wrong for any publish output containing subdirectories, which includes
+> every Blazor build. See `## Compress-Archive cannot build a deployable archive from this
+> project` in the 2026-09-08 record. Kept unedited because this section records what was run on
+> 2026-08-31.
+
 ```powershell
 Compress-Archive -Path (Join-Path $PUB '*') -DestinationPath $ZIP -Force
 ```
@@ -378,3 +384,96 @@ increase, if either region is ever wanted.
 ```powershell
 az group delete --name rg-tenexcards-plc --yes --no-wait
 ```
+
+---
+
+# Deployment record — executed 2026-09-08
+
+Status: **live and verified.** Second deployment to `tenexcards-ka`, replacing the scaffold that
+had served since 2026-08-31. Change: `blazor-server-shell` (roadmap `F-01`), Phase 2.
+
+## What is deployed
+
+| | |
+|---|---|
+| URL | `https://tenexcards-ka.azurewebsites.net` |
+| Live routes | `GET /` → `200` (Blazor Server shell) · `GET /circuit-check` → `200` · `GET /weatherforecast` → **`404`** |
+| Deployment id | `354fe65d-52e2-4627-87b8-b0c18d5caf85`, `RuntimeSuccessful`, 1/1 instances |
+| Artifact | `TenExCards/bin/publish.zip`, flat, 497,672 bytes, 28 entries |
+| Runtime reported by the container | `ASP .NETCore Version: 10.0.11` |
+| Instance | `lw1sdlwk0000ZO` |
+| Infrastructure | unchanged — no `infra/main.bicep` deployment ran |
+
+The app is a Blazor Web App with per-page interactivity. `UseHttpsRedirection()` is gone; the
+minimal-API scaffold, the `WeatherForecast` record and the OpenAPI package are gone with it.
+
+**Measured timings are in `../changes/blazor-server-shell/baseline.md`** — TTFB, total page load,
+circuit establishment and click round-trip, with the conditions they were taken under. They are
+not copied here; that file is their single home.
+
+## Compress-Archive cannot build a deployable archive from this project
+
+This is the one thing that would have broken the deploy, and it was caught before uploading.
+
+Windows PowerShell 5.1 runs on .NET Framework 4.8, whose zip writer stores Windows path separators
+verbatim. Every nested entry came out as `wwwroot\_framework\blazor.web.js` rather than
+`wwwroot/_framework/blazor.web.js`. `[IO.Compression.ZipFile]::CreateFromDirectory` under the same
+runtime does the same thing — it is the runtime, not the cmdlet.
+
+A backslash is a legal filename character on Linux, so such an archive can extract as flat files
+with literal backslashes in their names instead of a `wwwroot/` tree. The deploy reports success
+and the app then serves an HTML shell whose every stylesheet and script 404s.
+
+**This could not have bitten the 2026-08-31 deploy.** That archive contained eleven bare filenames
+and no subdirectories at all, so it had no separators to get wrong. The Blazor publish output is
+the first to carry nested paths.
+
+The archive is now built entry-by-entry with `ZipArchive.CreateEntry`, names normalised to `/`.
+
+### The old first-entry assertion was also wrong
+
+`## Execution` step 6 above says the entry list "must start with `TenExCards.dll`". That check
+**fails on a correct archive** as soon as the publish output has subdirectories: `Compress-Archive`
+emits directory entries ahead of file entries, so entry 0 is `wwwroot/Components/`. It only ever
+passed because the scaffold publish had no directories.
+
+Three assertions replace it, all run before upload:
+
+1. `TenExCards.dll` is present at the archive root
+2. no entry is prefixed `publish/`
+3. no entry contains a backslash
+
+Confirmation that the shape was right came from the container's own startup log:
+`Found the startup D name: TenExCards.dll`, followed by `dotnet "TenExCards.dll"`.
+
+## Verified after the deploy
+
+- `GET /` → `200`; `GET /circuit-check` → `200`; `GET /weatherforecast` → `404`.
+- **Every `.css`/`.js` URL the rendered root references returns `200`** on the live host —
+  `blazor.web.*.js`, `app.*.css`, `ReconnectModal.*.razor.js`, `bootstrap.min.*.css`,
+  `TenExCards.*.styles.css`. Checking the shell alone is not enough: a Blazor page's HTML is
+  mostly *references* to the scripts that make it work, so a `200` on the document proves little.
+- The `_blazor` WebSocket reaches open state and `/circuit-check` increments without a reload —
+  a circuit works on B1 Linux.
+- **No `HttpsRedirectionMiddleware[3]` warning at startup**, now that the middleware is removed.
+
+## Corrections to the 2026-08-31 record
+
+- **"`404` at `/`" is no longer one of the "looks like a failure but is not" cases.** Always On
+  pings `/` every five minutes and now gets a real page. A `404` at `/` is a genuine fault from
+  here on. The other three cases (`/robots933456.txt`, `/openapi/v1.json`, and the
+  HttpsRedirection warning) still stand — though the third can now only appear if someone has
+  re-added the middleware.
+- **`UseHttpsRedirection()` "no-ops rather than looping"** remains true as a statement about the
+  platform, but is no longer a statement about this app: the middleware is not in the pipeline.
+  The `## Deliberately not set` recommendation to remove it has been acted on.
+- `UseHsts()` is now in the pipeline in the non-Development branch. It is new production
+  behaviour relative to the scaffold, recorded so it is not later mistaken for drift. Reasoning
+  is in `TenExCards/AGENTS.md` under `### HTTPS`.
+
+## Rollback
+
+B1 has no deployment slots, so rollback is manual. `TenExCards/bin/publish-scaffold-rollback.zip`
+(git-ignored, 372,646 bytes) is the exact archive that served production from 2026-08-31 until
+this deploy; redeploy it with the same `az webapp deploy` command. If that file is lost, rebuild
+from commit `035e064`: `git checkout 035e064 -- TenExCards/`, publish, zip, redeploy.

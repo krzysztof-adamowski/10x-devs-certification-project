@@ -490,6 +490,25 @@ point. (c) `## Conventions` — replace "Ask which convention to use for product
 settled answer: Conventional Commits. (d) Add `UseHsts()` as a recorded production behaviour so it
 is not later mistaken for drift.
 
+> **Adapted during implementation (2026-09-08).** A **fifth edit** was made, approved as a
+> deliberate scope call. The `## Never do these` bullet "Never zip the publish folder itself"
+> instructed the reader to assert the archive's first entry is `TenExCards.dll` and to build the
+> archive with `Compress-Archive` — both disproven by Phase 2 before anything was uploaded. It is
+> a `## Never do these` rule, the highest-stakes text in the file, and the next agent to package
+> this app (`F-03`'s pipeline) would have followed it into a deploy that succeeds and then serves
+> a page whose every asset 404s. Correcting it is the same job as the four enumerated edits —
+> "documents make claims this change falsifies" — the plan simply could not know about it, because
+> the defect did not exist until the publish output first contained subdirectories.
+>
+> The bullet now states the three shape assertions and that `Compress-Archive` is unusable here,
+> pointing at the 2026-09-08 deployment record for the mechanism. It stays one bullet, and the
+> mechanism lives in exactly one place, per the file's own rule that a fact goes in the rule list
+> or `## Deployment`, never both.
+>
+> The `### HTTPS` heading was also renamed from "why neither environment variable belongs here" to
+> "what enforces it, and what must never be set" — edits (b) and (d) grew the section past what
+> the old heading described. Nothing in the repo referenced the old heading text.
+
 #### 2. Deployment record
 
 **File**: `context/deployment/deploy-plan.md`
@@ -502,6 +521,14 @@ route), the resulting live behaviour (`/` 200, `/weatherforecast` 404), a pointe
 them, and confirmation that the `HttpsRedirectionMiddleware[3]` warning is gone now
 that the middleware is removed. Note that the "404 at `/`" entry under the existing "looks like a
 failure but is not" list no longer applies — Always On's 5-minute ping to `/` now gets a real page.
+
+> **Adapted during implementation (2026-09-08).** The contract says "append", and the record was
+> appended. One edit was additionally made **above** the append point: `## Execution` step 6 — the
+> `Compress-Archive` packaging step — carries a `> Superseded 2026-09-08` marker pointing at the
+> new record. The step itself is unedited, because that section documents what was actually run on
+> 2026-08-31 and rewriting it would falsify a historical record. But it is the first packaging
+> instruction a reader meets, and following it as written now produces a broken deploy, so an
+> append alone would leave the trap armed for anyone reading top-to-bottom.
 
 #### 3. Roadmap open question
 
@@ -617,31 +644,31 @@ cannot manifest at one worker. Recorded, not acted on.
 
 #### Automated
 
-- [x] 2.1 dotnet publish -c Release emits TenExCards.dll at the publish root
-- [x] 2.2 Archive first entry is TenExCards.dll (nested-zip assertion passes)
-- [x] 2.3 az webapp deploy reports success
-- [x] 2.4 Live root returns 200
-- [x] 2.5 Live /weatherforecast returns 404
-- [x] 2.6 TTFB and total-load timings captured for /
-- [x] 2.11 Rollback artifact preserved at bin/publish-scaffold-rollback.zip before the overwrite
+- [x] 2.1 dotnet publish -c Release emits TenExCards.dll at the publish root — 85af805
+- [x] 2.2 Archive first entry is TenExCards.dll (nested-zip assertion passes) — 85af805
+- [x] 2.3 az webapp deploy reports success — 85af805
+- [x] 2.4 Live root returns 200 — 85af805
+- [x] 2.5 Live /weatherforecast returns 404 — 85af805
+- [x] 2.6 TTFB and total-load timings captured for / — 85af805
+- [x] 2.11 Rollback artifact preserved at bin/publish-scaffold-rollback.zip before the overwrite — 85af805
 
 #### Manual
 
-- [x] 2.7 /circuit-check increments on the live B1 instance
-- [x] 2.8 _blazor WebSocket visible in devtools; establishment time recorded
-- [x] 2.9 No HttpsRedirectionMiddleware[3] warning in the live startup log
-- [x] 2.10 Round-trip click latency recorded
+- [x] 2.7 /circuit-check increments on the live B1 instance — 85af805
+- [x] 2.8 _blazor WebSocket visible in devtools; establishment time recorded — 85af805
+- [x] 2.9 No HttpsRedirectionMiddleware[3] warning in the live startup log — 85af805
+- [x] 2.10 Round-trip click latency recorded — 85af805
 
 ### Phase 3: Update the repo's own record
 
 #### Automated
 
-- [ ] 3.1 AGENTS.md no longer contains "unmodified dotnet new webapi output"
-- [ ] 3.2 AGENTS.md no longer contains "Whether to delete it is undecided"
-- [ ] 3.3 deploy-plan.md contains a dated record for this deployment
-- [ ] 3.4 roadmap.md marks Open Roadmap Question 4 resolved
+- [x] 3.1 AGENTS.md no longer contains "unmodified dotnet new webapi output"
+- [x] 3.2 AGENTS.md no longer contains "Whether to delete it is undecided"
+- [x] 3.3 deploy-plan.md contains a dated record for this deployment
+- [x] 3.4 roadmap.md marks Open Roadmap Question 4 resolved
 
 #### Manual
 
-- [ ] 3.5 AGENTS.md reads correctly start to finish as a fresh agent would
-- [ ] 3.6 Stated commit convention matches the commits this change produced
+- [x] 3.5 AGENTS.md reads correctly start to finish as a fresh agent would
+- [x] 3.6 Stated commit convention matches the commits this change produced
