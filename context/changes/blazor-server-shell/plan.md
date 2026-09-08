@@ -372,6 +372,31 @@ trailing `*` is load-bearing. Then read the archive with
 `publish/TenExCards.dll`. **This assertion gates the deploy** — a nested archive deploys
 successfully and then 503s, so a passing deploy command is not evidence of a correct archive.
 
+> **Adapted during implementation (2026-09-08).** Both halves of this contract had to change,
+> for two independent reasons found before anything was uploaded.
+>
+> **The assertion was a proxy that no longer holds.** `Compress-Archive` emits directory entries
+> ahead of file entries, so entry 0 is `wwwroot/Components/`, not `TenExCards.dll` — on a
+> perfectly flat archive. The proxy only ever worked because the 2026-08-31 scaffold publish had
+> no subdirectories at all (11 bare filenames), an accident the criterion silently encoded. The
+> gate now tests flatness directly: `TenExCards.dll` present at the archive root, and no entry
+> prefixed `publish/`.
+>
+> **`Compress-Archive` cannot produce a deployable archive here.** Windows PowerShell 5.1 runs on
+> .NET Framework 4.8, whose zip writer stores Windows path separators verbatim: every nested entry
+> came out as `wwwroot\_frameworklazor.web.js`. `[IO.Compression.ZipFile]::CreateFromDirectory`
+> under the same runtime does the same — it is the runtime, not the cmdlet. A backslash is a legal
+> filename character on Linux, so an extractor there can write one file literally named
+> `wwwroot\_frameworklazor.web.js` at the root instead of a `wwwroot/` tree; the deploy reports
+> success and every asset on the served page 404s. This is the nested-zip failure mode arriving
+> through a different door, and it could not have bitten the 2026-08-31 deploy because that archive
+> had no separators to get wrong. **This is the first deploy carrying nested paths.**
+>
+> The archive is now built entry-by-entry with `ZipArchive.CreateEntry`, names normalised to `/`,
+> and a third assertion added: no entry contains a backslash. Anything that packages this app in
+> future — `F-03`'s pipeline included — must satisfy all three, or produce the zip on Linux where
+> the question does not arise.
+
 #### 4. Deploy
 
 **File**: n/a — Azure App Service `tenexcards-ka`
@@ -408,7 +433,13 @@ time pressure — which the roadmap explicitly anticipates for deploy-adjacent w
 #### Automated Verification:
 
 - `dotnet publish -c Release` completes and emits `TenExCards.dll` at the publish root
-- The archive's first entry is `TenExCards.dll` (nested-zip assertion passes)
+- The archive passes all three shape assertions: `TenExCards.dll` at the archive root, no entry
+  prefixed `publish/`, and no entry containing a backslash
+
+  > **Adapted during implementation (2026-09-08).** Was "the archive's first entry is
+  > `TenExCards.dll`". That ordering proxy fails on a correct archive once the publish output has
+  > subdirectories, and it says nothing about separators — the defect that actually threatened this
+  > deploy. See the note under Phase 2 step 3.
 - `az webapp deploy` reports success
 - Live root returns 200
 - Live `/weatherforecast` returns 404 — the scaffold is gone from production
@@ -568,38 +599,38 @@ cannot manifest at one worker. Recorded, not acted on.
 
 #### Automated
 
-- [x] 1.1 Release build succeeds
-- [x] 1.2 No scaffold identifiers remain (WeatherForecast, AddOpenApi, MapOpenApi, UseHttpsRedirection)
-- [x] 1.3 TenExCards.http and Weather.razor do not exist
-- [x] 1.4 csproj contains zero PackageReference elements
-- [x] 1.5 wwwroot/lib/bootstrap contains exactly one file
-- [x] 1.6 App starts and root route returns 200 locally
+- [x] 1.1 Release build succeeds — 8a6c8b8
+- [x] 1.2 No scaffold identifiers remain (WeatherForecast, AddOpenApi, MapOpenApi, UseHttpsRedirection) — 8a6c8b8
+- [x] 1.3 TenExCards.http and Weather.razor do not exist — 8a6c8b8
+- [x] 1.4 csproj contains zero PackageReference elements — 8a6c8b8
+- [x] 1.5 wwwroot/lib/bootstrap contains exactly one file — 8a6c8b8
+- [x] 1.6 App starts and root route returns 200 locally — 8a6c8b8
 
 #### Manual
 
-- [x] 1.7 /circuit-check increments on click with no page reload
-- [x] 1.8 Reconnect modal appears when the server is stopped mid-session
-- [x] 1.9 Nav shows Home and Circuit check, no Weather link
-- [x] 1.10 No new build warnings versus the pre-change baseline
+- [x] 1.7 /circuit-check increments on click with no page reload — 8a6c8b8
+- [x] 1.8 Reconnect modal appears when the server is stopped mid-session — 8a6c8b8
+- [x] 1.9 Nav shows Home and Circuit check, no Weather link — 8a6c8b8
+- [x] 1.10 No new build warnings versus the pre-change baseline — 8a6c8b8
 
 ### Phase 2: Deploy and record the live baseline
 
 #### Automated
 
-- [ ] 2.1 dotnet publish -c Release emits TenExCards.dll at the publish root
-- [ ] 2.2 Archive first entry is TenExCards.dll (nested-zip assertion passes)
-- [ ] 2.3 az webapp deploy reports success
-- [ ] 2.4 Live root returns 200
-- [ ] 2.5 Live /weatherforecast returns 404
-- [ ] 2.6 TTFB and total-load timings captured for /
-- [ ] 2.11 Rollback artifact preserved at bin/publish-scaffold-rollback.zip before the overwrite
+- [x] 2.1 dotnet publish -c Release emits TenExCards.dll at the publish root
+- [x] 2.2 Archive first entry is TenExCards.dll (nested-zip assertion passes)
+- [x] 2.3 az webapp deploy reports success
+- [x] 2.4 Live root returns 200
+- [x] 2.5 Live /weatherforecast returns 404
+- [x] 2.6 TTFB and total-load timings captured for /
+- [x] 2.11 Rollback artifact preserved at bin/publish-scaffold-rollback.zip before the overwrite
 
 #### Manual
 
-- [ ] 2.7 /circuit-check increments on the live B1 instance
-- [ ] 2.8 _blazor WebSocket visible in devtools; establishment time recorded
-- [ ] 2.9 No HttpsRedirectionMiddleware[3] warning in the live startup log
-- [ ] 2.10 Round-trip click latency recorded
+- [x] 2.7 /circuit-check increments on the live B1 instance
+- [x] 2.8 _blazor WebSocket visible in devtools; establishment time recorded
+- [x] 2.9 No HttpsRedirectionMiddleware[3] warning in the live startup log
+- [x] 2.10 Round-trip click latency recorded
 
 ### Phase 3: Update the repo's own record
 
