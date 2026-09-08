@@ -663,12 +663,12 @@ cannot manifest at one worker. Recorded, not acted on.
 
 #### Automated
 
-- [x] 3.1 AGENTS.md no longer contains "unmodified dotnet new webapi output"
-- [x] 3.2 AGENTS.md no longer contains "Whether to delete it is undecided"
-- [x] 3.3 deploy-plan.md contains a dated record for this deployment
-- [x] 3.4 roadmap.md marks Open Roadmap Question 4 resolved
+- [x] 3.1 AGENTS.md no longer contains "unmodified dotnet new webapi output" — 49d4092
+- [x] 3.2 AGENTS.md no longer contains "Whether to delete it is undecided" — 49d4092
+- [x] 3.3 deploy-plan.md contains a dated record for this deployment — 49d4092
+- [x] 3.4 roadmap.md marks Open Roadmap Question 4 resolved — 49d4092
 
 #### Manual
 
-- [x] 3.5 AGENTS.md reads correctly start to finish as a fresh agent would
-- [x] 3.6 Stated commit convention matches the commits this change produced
+- [x] 3.5 AGENTS.md reads correctly start to finish as a fresh agent would — 49d4092
+- [x] 3.6 Stated commit convention matches the commits this change produced — 49d4092
