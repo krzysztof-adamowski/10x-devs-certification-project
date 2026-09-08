@@ -1,7 +1,7 @@
 ---
 change_id: blazor-server-shell
 title: Blazor server shell
-status: plan_reviewed
+status: implementing
 created: 2026-09-08
 updated: 2026-09-08
 archived_at: null

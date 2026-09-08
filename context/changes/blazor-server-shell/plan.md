@@ -177,6 +177,12 @@ that demonstrate nothing this app needs.
 `Pages/Error.razor`, `Pages/NotFound.razor`. **Do not copy** `Pages/Weather.razor` — it exists to
 demo streaming rendering against sample data and would be a second scaffold to delete later.
 
+> **Added during implementation (2026-09-08).** `MainLayout.razor` ships a top-row `About` anchor
+> pointing at `https://learn.microsoft.com/aspnet/core/`. Removed: a link to Microsoft's docs in
+> the product's own header is exactly the incidental template decision this phase exists to prune,
+> and it was invisible in the file list — it only surfaced when the page was rendered in a
+> browser. The empty `top-row` div is left in place for a later slice to fill.
+
 #### 3. Circuit-check page
 
 **File**: `TenExCards/Components/Pages/CircuitCheck.razor`
@@ -275,15 +281,34 @@ old ports once `TenExCards.http` is deleted.
 
 - Release build succeeds: `dotnet build TenExCards/TenExCards.csproj -c Release`
 - No scaffold identifiers remain:
-  `grep -rn "WeatherForecast\|AddOpenApi\|MapOpenApi\|UseHttpsRedirection" TenExCards/ --include=*.cs --include=*.csproj --include=*.razor`
+  `grep -rn "WeatherForecast\|AddOpenApi\|MapOpenApi\|app\.UseHttpsRedirection()" TenExCards/ --include=*.cs --include=*.csproj --include=*.razor`
   returns nothing. **The type filter is load-bearing, not tidiness**: `TenExCards/AGENTS.md`
   legitimately discusses all four identifiers (lines 14, 115, 119), Phase 3 deliberately keeps a
   `UseHttpsRedirection()` mention there, and stale `bin/`/`obj/` binaries match as well — an
   unfiltered grep can never return nothing, so it would fail on a correct implementation.
+
+  > **Adapted during implementation (2026-09-08).** The fourth term was widened from the bare
+  > identifier to the `app.UseHttpsRedirection()` *call*. `Program.cs` carries a deliberate
+  > comment naming the middleware to explain why it is absent — AGENTS.md warns that removing it
+  > couples HTTPS posture to the platform setting, so an unexplained absence invites a future
+  > agent to re-add it. The gate's intent is "no scaffold **code** remains"; matching the call
+  > tests that, while matching the bare word also flags the comment that exists to prevent a
+  > regression. Same class of defect as F1 in the plan review, found one level deeper.
 - `TenExCards/TenExCards.http` and `TenExCards/Components/Pages/Weather.razor` do not exist
 - The csproj contains zero `PackageReference` elements
 - `wwwroot/lib/bootstrap` contains exactly one file
-- App starts and the root route returns 200 locally
+- App starts, the root route returns 200 locally, **and every `.css`/`.js` URL the rendered page
+  references also returns 200** — including the fingerprinted `_framework/blazor.web.js`, the
+  scoped-CSS bundle `TenExCards.styles.css`, and `Components/Layout/ReconnectModal.razor.js`
+
+  > **Adapted during implementation (2026-09-08).** The original criterion stopped at "root route
+  > returns 200" and passed on a page whose every asset was returning 500 — a 200 on the HTML
+  > shell proves almost nothing for a Blazor app, since the shell only contains *references* to
+  > the scripts that make it work. Run the app with `ASPNETCORE_ENVIRONMENT=Development` (or
+  > against `dotnet publish` output): `--no-launch-profile` alone leaves the environment unset,
+  > which defaults to Production, where Static Web Assets are not wired up and every framework and
+  > scoped-CSS asset 500s with `FileNotFoundException`. That is a harness artefact, not an
+  > application defect — published output materializes these files into `wwwroot/`, verified.
 
 #### Manual Verification:
 
@@ -543,19 +568,19 @@ cannot manifest at one worker. Recorded, not acted on.
 
 #### Automated
 
-- [ ] 1.1 Release build succeeds
-- [ ] 1.2 No scaffold identifiers remain (WeatherForecast, AddOpenApi, MapOpenApi, UseHttpsRedirection)
-- [ ] 1.3 TenExCards.http and Weather.razor do not exist
-- [ ] 1.4 csproj contains zero PackageReference elements
-- [ ] 1.5 wwwroot/lib/bootstrap contains exactly one file
-- [ ] 1.6 App starts and root route returns 200 locally
+- [x] 1.1 Release build succeeds
+- [x] 1.2 No scaffold identifiers remain (WeatherForecast, AddOpenApi, MapOpenApi, UseHttpsRedirection)
+- [x] 1.3 TenExCards.http and Weather.razor do not exist
+- [x] 1.4 csproj contains zero PackageReference elements
+- [x] 1.5 wwwroot/lib/bootstrap contains exactly one file
+- [x] 1.6 App starts and root route returns 200 locally
 
 #### Manual
 
-- [ ] 1.7 /circuit-check increments on click with no page reload
-- [ ] 1.8 Reconnect modal appears when the server is stopped mid-session
-- [ ] 1.9 Nav shows Home and Circuit check, no Weather link
-- [ ] 1.10 No new build warnings versus the pre-change baseline
+- [x] 1.7 /circuit-check increments on click with no page reload
+- [x] 1.8 Reconnect modal appears when the server is stopped mid-session
+- [x] 1.9 Nav shows Home and Circuit check, no Weather link
+- [x] 1.10 No new build warnings versus the pre-change baseline
 
 ### Phase 2: Deploy and record the live baseline
 

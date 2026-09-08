@@ -1,0 +1,31 @@
+@page "/circuit-check"
+@rendermode InteractiveServer
+
+@* Exists only to prove the Blazor Server circuit is live: a rendered page proves static SSR
+   worked, but only a server round-trip after page load proves the circuit exists. Delete this
+   page in S-01 (accounts-and-sessions) — by then real interactive surfaces exist, and S-01 is
+   the slice that introduces an auth boundary this page would otherwise sit outside of.
+   The @rendermode line above is the annotation every interactive page must carry: this app
+   uses per-page opt-in, so a page without it renders statically and its handlers never fire. *@
+
+<PageTitle>Circuit check</PageTitle>
+
+<h1>Circuit check</h1>
+
+<p>
+    If the count below increases when you click, the SignalR circuit is live and the server is
+    handling events for this page.
+</p>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}

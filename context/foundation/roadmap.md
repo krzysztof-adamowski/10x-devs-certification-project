@@ -58,7 +58,7 @@ reason to exist.
 
 | ID   | Change ID                | Outcome (user can …)                                             | Prerequisites    | PRD refs                                               | Status   |
 | ---- | ------------------------ | ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------ | -------- |
-| F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | planning |
+| F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | in-progress |
 | F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | ready    |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | proposed |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | proposed |
@@ -128,7 +128,7 @@ rather than reopening them.
   this establishes the host and nothing else, and every slice still builds its own surface. The
   secondary risk is carrying the scaffold's incidental decisions forward untouched while rewriting
   around them.
-- **Status:** planning
+- **Status:** in-progress
 
 ### F-02: Persistence spine — provisioned database reachable from the deployed app
 
