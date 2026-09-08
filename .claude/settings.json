@@ -54,9 +54,7 @@
       "Bash(python3 *)",
       "Bash(bash -c *)",
       "Bash(sh -c *)",
-      "Bash(sed *)",
       "Bash(awk *)",
-      "Bash(find *)",
       "Bash(touch *)"
     ],
     "deny": [
