@@ -70,9 +70,16 @@ A new fact goes in one or the other, never both:
   scaling: every container restart (deploy, platform maintenance, recycle) rotates the key ring,
   logging users out and rejecting antiforgery tokens. Configure persistence in the same change
   that adds Identity. See `## Deployment`.
-- **Never set `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, and never add `ASPNETCORE_HTTPS_PORT`.**
-  Together they produce an infinite redirect. The platform already supplies `X-Forwarded-Proto`
-  and enforces HTTPS, so neither is needed.
+- **Never set `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false`, and never add `ASPNETCORE_HTTPS_PORT`.**
+  Forwarded-header processing is **on by platform default** on the Linux .NET container, which is
+  why *disabling* it is what breaks things — setting it to `false` is not a no-op. It is what makes
+  `Request.IsHttps` true, and `UseHsts()` emits its header only when `Request.IsHttps`, so turning
+  it off **silently** stops HSTS: no warning, no log line, no failing request. When Identity lands
+  it will also strip `Secure` from auth cookies under the default `CookieSecurePolicy.SameAsRequest`.
+  The port is harmless on its own, and harmless today only because `UseHttpsRedirection()` is gone;
+  the `307` redirect loop measured on 2026-08-31 needed the port, the disabled variable **and**
+  that middleware. Neither variable is needed. Measurements: `## Deliberately not set` in
+  `../context/deployment/deploy-plan.md`.
 - **Never run `az deployment group create` with `--mode Complete`.** It deletes every resource
   in the group absent from the template — the plan and web app included. Incremental is the
   default and the only mode used here.
@@ -116,8 +123,9 @@ Persist the keys when Identity lands, not when the worker count changes.
 ### HTTPS: what enforces it, and what must never be set
 
 The Linux .NET container supplies `X-Forwarded-Proto`, so `Request.IsHttps` is already correct.
-Setting the two variables together produces a `307` to the request's own URL — an infinite
-redirect; the port alone is harmless. Measurements are in
+Setting `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false` and adding `ASPNETCORE_HTTPS_PORT` together
+produced a `307` to the request's own URL — an infinite redirect — back when
+`UseHttpsRedirection()` was still in the pipeline; the port alone is harmless. Measurements are in
 `../context/deployment/deploy-plan.md` under `## Deliberately not set`.
 
 **`UseHttpsRedirection()` was removed on 2026-09-08 and is not coming back.** The platform is now

@@ -17,8 +17,9 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
-// No UseHttpsRedirection(): HTTPS is enforced at the platform by httpsOnly (infra/main.bicep),
-// so the middleware would find no port and no-op while logging a warning at every startup.
+// No UseHttpsRedirection(): HTTPS is enforced at the platform, which declares httpsOnly: true in
+// infra/main.bicep. That guarantee is what makes the absence safe -- reinstate the middleware if
+// this app is ever deployed somewhere that cannot enforce it. See TenExCards/AGENTS.md "### HTTPS".
 
 app.UseAntiforgery();
 

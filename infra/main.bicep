@@ -81,18 +81,21 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: plan.id
 
     // Platform-level HTTP->HTTPS (301). This is the correct way to enforce TLS,
-    // and it makes UseHttpsRedirection() in Program.cs redundant.
+    // and it is the ONLY thing enforcing TLS: app.UseHttpsRedirection() was
+    // removed from Program.cs on 2026-09-08 (change blazor-server-shell, F-01).
+    // Turning httpsOnly off therefore leaves the app with no redirect at all.
     //
     // The container supplies X-Forwarded-Proto, so Request.IsHttps is already
-    // true for real traffic and the middleware returns before looking for a
-    // port. Verified 2026-08-31: ASPNETCORE_HTTPS_PORT=443 alone returns 200
+    // true for real traffic, which is also what makes UseHsts() emit its
+    // header. Verified 2026-08-31: ASPNETCORE_HTTPS_PORT=443 alone returns 200
     // with zero redirects; only when paired with
     // ASPNETCORE_FORWARDEDHEADERS_ENABLED=false does it return 307 to the
     // request's own URL (ERR_TOO_MANY_REDIRECTS). Add neither.
     //
     // The "HttpsRedirectionMiddleware[3] Failed to determine the https port"
-    // line appears once at startup, from the platform's plain-HTTP warm-up
-    // probe. It is not per-request and not a defect.
+    // line NO LONGER APPEARS, because the middleware is gone. If it comes
+    // back in a startup log, the middleware has been re-added. See
+    // TenExCards/AGENTS.md "### HTTPS".
     httpsOnly: true
 
     // Sticky sessions (ARR affinity). Irrelevant to the current scaffold and

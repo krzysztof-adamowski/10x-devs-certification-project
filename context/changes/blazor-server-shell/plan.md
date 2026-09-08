@@ -130,6 +130,13 @@ command below must call `curl.exe` explicitly, or the `-o` / `-w` flags are misp
 `Invoke-WebRequest` parameters and fail. `-SkipHttpErrorCheck` is PowerShell 7+ only and is not
 available here — this already bit the 2026-08-31 deploy (deviation 4 in `deploy-plan.md`).
 
+> **Superseded 2026-09-08 during implementation.** Both claims in this paragraph were disproven
+> in Phase 2 before anything was uploaded: `Compress-Archive` cannot produce a deployable archive
+> from this project at all, and the first-entry assertion fails on a *correct* archive once the
+> publish output contains subdirectories. The paragraph is left unedited because it records what
+> was believed at planning time. **Do not follow it** — see the adaptation note under Phase 2
+> step 3 for the three assertions that replace it.
+
 **The trailing `*` in `Compress-Archive -Path <publish>/*` is load-bearing.** A nested zip deploys
 *successfully* and then 503s at runtime, which is the nastiest failure mode available on this
 platform. Assert the archive's first entry is `TenExCards.dll`, not `publish/TenExCards.dll`,
@@ -508,6 +515,11 @@ is not later mistaken for drift.
 > The `### HTTPS` heading was also renamed from "why neither environment variable belongs here" to
 > "what enforces it, and what must never be set" — edits (b) and (d) grew the section past what
 > the old heading described. Nothing in the repo referenced the old heading text.
+>
+> **A sixth edit**, recorded here after review: `Do **not** add \`Co-Authored-By\` trailers.` was
+> appended to `## Conventions`. It follows from edit (c) settling the commit convention and matches
+> all four commits this change produced, but it is its own instruction and was not in any contract.
+> Counting it, this phase made six edits to `AGENTS.md`, not four.
 
 #### 2. Deployment record
 
@@ -621,6 +633,11 @@ cannot manifest at one worker. Recorded, not acted on.
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
+>
+> **Row titles are original, criteria are amended.** Rows 1.2, 1.6 and 2.2 are titled by the
+> criteria as first written; each was widened during implementation and verified against the
+> amended version, not the title. Read the phase's Success Criteria for what was actually
+> checked. Row 2.2 in particular is titled by an assertion the change proved wrong.
 
 ### Phase 1: Blazor Server host replaces the API scaffold
 

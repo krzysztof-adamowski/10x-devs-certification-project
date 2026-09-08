@@ -59,7 +59,7 @@ reason to exist.
 | ID   | Change ID                | Outcome (user can …)                                             | Prerequisites    | PRD refs                                               | Status   |
 | ---- | ------------------------ | ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------ | -------- |
 | F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | in-progress |
-| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | proposed    |
+| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | ready    |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | proposed |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | proposed |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | proposed |
@@ -163,6 +163,16 @@ rather than reopening them.
 - **Parallel with:** S-01
 - **Blockers:** —
 - **Unknowns:** —
+- **Carried forward from F-01 (2026-09-08):** the packaging step must be an executable script, not
+  prose. `TenExCards/AGENTS.md` now forbids `Compress-Archive` (Windows PowerShell 5.1 writes
+  backslash separators into nested entries) and requires three pre-upload assertions —
+  `TenExCards.dll` at the archive root, no entry prefixed `publish/`, no entry containing a
+  backslash. F-01 verified all three by hand and committed no script, so today the rule depends on
+  someone reading carefully. Its own failure mode is that a wrong archive **deploys successfully**
+  and then serves a page whose every asset 404s — there is no signal to catch it. Whatever F-03
+  builds, the assertions must fail the job non-zero. Running the pack on Linux avoids the separator
+  problem entirely but not the other two assertions. Detail: the 2026-09-08 record in
+  `context/deployment/deploy-plan.md`.
 - **Risk:** The only foundation here not strictly required before the next slice — manual deployment
   already works. It earns its place on repetition: with six slices left and a deadline twelve days
   out, every one of them gets deployed and verified, and the archive-shape trap is a once-per-deploy
