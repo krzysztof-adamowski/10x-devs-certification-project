@@ -412,6 +412,7 @@ is ever stored in GitHub. Several steps are human-only, matching the manual-gate
 | `az login` | **Human only — STOP AND ASK** | Interactive browser authentication. The agent cannot complete it and must not attempt it. |
 | Entra app registration | Agent, may be refused | Creates a directory object. Some tenants restrict this to admins — see the contingency. |
 | Role assignment | Agent, may be refused | Requires Owner or User Access Administrator on the subscription. |
+| Publish-profile fallback | **Human only — STOP AND ASK** | `az webapp deployment list-publishing-profiles` is `deny`-listed in `.claude/settings.json`. Read-only against Azure, but it prints a live credential, and an agent's stdout is logged. Only reached if the app registration is refused — see the contingency. |
 
 **Run the session gate first, before anything else in this phase:**
 
@@ -493,6 +494,31 @@ Remove-Item $prof -Force
 
 That profile is a live credential — delete the temp file immediately, as above, and never echo it.
 Record which path was taken and why in Phase 5's deployment record.
+
+**STOP-AND-ASK: the fallback block above is human-only.**
+`az webapp deployment list-publishing-profiles` is on the `deny` list in `.claude/settings.json`,
+alongside `az account get-access-token`. An agent cannot run it, **must not attempt it, and must not
+route around it** — not via `--query`, not by redirecting to a file, not through a wrapper script.
+Stop, tell the user the fallback is agent-blocked, and hand them the block to run in their own
+terminal. This is a manual gate in exactly the sense `az login` is, and for a stronger reason.
+
+The verb says `list`; the payload is a working credential. The profile carries `userName`,
+`userPWD`, and the SCM/Kudu `publishUrl`, and those grant push of arbitrary code, read access to
+app settings, filesystem browsing, and command execution on the instance. It is read-only against
+Azure — nothing rotates, nothing breaks — so the rule is not about mutation. It is about
+**exfiltration**: anything an agent prints lands in conversation history and tool logs, and a
+credential shown once cannot be unshown. That is also why the two commands sit together under
+`deny` — both are read verbs that emit credentials.
+
+Consequence for this phase: on the fallback branch the agent completes every step it can, then
+stops before the profile is read. The user runs the four lines above themselves and confirms
+`AZURE_WEBAPP_PUBLISH_PROFILE` is set; the agent resumes at the fallback success criteria, which
+are already written to be checkable without ever reading the profile
+(`gh secret list`, `length(@)`, `Test-Path`). Nothing downstream needs the profile's contents.
+
+Record in Phase 5 (criterion 5.11) not just which auth path was taken, but that the documented
+alternative was policy-blocked for the agent — otherwise the contingency reads as available when it
+is not.
 
 **What the fallback changes downstream.** This branch has to be executable in advance, not written
 up afterwards the way the 2026-08-31 region fallback was, so both places that assume OIDC state
