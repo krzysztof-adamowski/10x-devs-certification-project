@@ -6,3 +6,4 @@ Personal
 # infra/main.bicep states this invariant; these rules are what enforce it.
 infra/*.parameters.json
 infra/*.parameters.local.json
+.claude/settings.json
