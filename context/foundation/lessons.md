@@ -16,19 +16,30 @@
   shown to succeed against a known-good case before it is read as a verdict.
 - **Applies to**: plan, implement, impl-review
 
-## Two changes in flight against one file: verify the staged diff, not the file
+## Parallel sessions share one index: commit by path, verify the staged diff
 
-- **Context**: `infra/main.bicep`, during `deploy-pipeline` Phase 5 §6, while `persistence-spine`
-  (F-02) was being implemented concurrently in another session.
-- **Problem**: `deploy-pipeline`'s plan permits only a header-comment edit to `infra/main.bicep` and
-  states the diff must be comment-only. At the same time the file held ~150 uncommitted lines of
-  F-02 infrastructure — a SQL server, two databases, a Key Vault, an identity, a role assignment.
-  Staging by path (`git add infra`) would have folded an entire other change's infrastructure into a
-  `(p5)` commit, and the commit would have looked correct: right file, right phase, plausible
-  message. Phase 1's own pre-flight asked for a clean tree, it was not clean, and nothing downstream
-  re-checked.
-- **Rule**: When a plan constrains a file's *diff* rather than merely naming the file, verify
-  `git diff --cached -- <path>` against that constraint before committing. A path in the
-  touched-file set authorises the file, never its current contents. The same applies to the
-  pre-flight clean-tree check: it is worthless if only performed once, at the start.
-- **Applies to**: implement, impl-review
+- **Context**: Two `/10x-implement` sessions running concurrently in one worktree —
+  `deploy-pipeline` (F-03) and `persistence-spine` (F-02) — on 2026-09-10. Expected to be the
+  normal working mode, not an accident.
+- **Problem**: Four distinct near-misses in one afternoon, none of which git reports as a conflict.
+  (1) `infra/main.bicep` held ~150 uncommitted lines of F-02 infrastructure while `deploy-pipeline`'s
+  plan permits only a header-comment edit there; `git add infra` would have folded an entire other
+  change into a `(p5)` commit that looked correct — right file, right phase, plausible message.
+  (2) `context/foundation/roadmap.md` carried both changes' status flips with the two table rows
+  *adjacent in one hunk*, so the diff could not be split along change boundaries at all.
+  (3) A file appeared in the index between one session's `git add` and its `git commit`: **`git add`
+  followed by `git commit` is not atomic across sessions, because the index is a single shared
+  file.** Unstaging the intruder would have been the obvious move and the wrong one — the other
+  session was mid-ritual and its own commit would then have silently dropped that file.
+  (4) The other session's commit swept up a `lessons.md` entry this session had appended seconds
+  earlier, landing it under an unrelated scope. Nothing failed; the traceability just quietly went.
+- **Rule**: Verify `git diff --cached -- <path>` against what the plan actually constrains. A path in
+  the touched-file set authorises the file, never its current contents, and a pre-flight clean-tree
+  check is worthless if performed only once at the start — re-check at commit time. Whenever another
+  session may be live, prefer `git commit --only <paths>` over `git add` + `git commit`: it commits
+  exactly the named paths and leaves the rest of the index untouched, so it can neither capture
+  another session's staged work nor silently drop it. Never `git add -A` or `git add .`. Never
+  `git restore --staged` a path you did not stage yourself. A file that legitimately carries both
+  changes goes in its own **unscoped** `chore:` commit — committing it under either change's scope
+  claims the other's work.
+- **Applies to**: plan, implement, impl-review
