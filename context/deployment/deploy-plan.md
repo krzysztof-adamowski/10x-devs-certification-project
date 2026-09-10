@@ -223,10 +223,14 @@ enables the developer exception page.
 
 ## Out of scope
 
-CI/CD (`ci_provider: github-actions` is recorded but pipeline setup is explicitly out of scope
-in `infrastructure.md`), the database (nothing persists yet), Blazor Server conversion, custom
-domain, and Application Insights. The git branch is `master` while `tech-stack.md` says
-"merge to main" — an inconsistency to settle when CI is actually built, not now.
+The database (nothing persists yet), Blazor Server conversion, custom domain, and Application
+Insights.
+
+CI/CD left this section on 2026-09-10. It is no longer deferred — it is the `deploy-pipeline`
+change (`context/changes/deploy-pipeline/plan.md`), which builds the pipeline
+`ci_provider: github-actions` always implied. That change also settled the branch name this
+section used to park: `master` was renamed to `main` on 2026-09-10, so the repository, the
+roadmap, and `tech-stack.md`'s "merge to main" now agree.
 
 ## Teardown
 
