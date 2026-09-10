@@ -235,8 +235,12 @@ the register rather than on the choice.
 - **Rollback**: At B1, `az webapp deploy --src-path <previous>.zip` — deterministic only if
   build artifacts are retained per release, so keep them as GitHub Actions artifacts. At
   Standard+, `az webapp deployment slot swap -s staging` reverts in seconds. Neither reverts
-  database migrations; EF Core migrations must be forward-only or paired with a tested down
-  migration.
+  database migrations. **EF Core migrations here are forward-only — full stop.** The earlier
+  wording allowed "or paired with a tested down migration"; `F-02` took the first branch flatly and
+  `TenExCards/AGENTS.md` records it as a rule, so that latitude is withdrawn rather than left for a
+  later change to pick whichever branch suits it. No down migration is authored or relied on, and
+  the `Down()` method EF generates is not a rollback story. `Database.Migrate()` runs on the **boot
+  path**, so a migration that throws means the container does not serve at all.
 - **Approval**: The agent may deploy to staging, read logs, list runtimes, and set non-secret
   app settings unattended. Human-only: publishing to production, rotating the LLM API key or
   any Key Vault secret, deleting the App Service plan, and any operation against the database
@@ -282,7 +286,7 @@ Rows carrying a date were observed on that date and should be re-verified rather
 | Built-in runtime patch level is Microsoft's to choose; a CVE fix arrives on the platform's cadence, not yours | Devil's advocate | M | M | Measure how far App Service's image trails a dotnet patch release before relying on it; if the gap is unacceptable, publish self-contained or use a custom container image so the version is yours to pin; verify the deployed patch level after each release |
 | B1 memory exhausted by circuits holding passages plus candidates | Devil's advocate / Pre-mortem | L | M | **Re-rated 2026-09-01 from M/H against the PRD's stated scale.** ~300 KB per active circuit (250 KB baseline plus a few-thousand-word passage and its candidates) against ~1.3 GB usable leaves headroom for thousands of concurrent circuits; the PRD records `target_scale.qps: low` and "at most a handful of concurrent requests". The original M/H came from the platform's general characteristics rather than this project's numbers. Enforce the passage-length bound before generation begins (a PRD requirement regardless). **Revisit — and move to B2 — if concurrent triage sessions reach the low tens, or if circuit state grows beyond the passage plus its candidates.** No load test is warranted at this scale |
 | No slot-based rollback at B1 | Devil's advocate | H | M | Retain every deploy artifact in GitHub Actions; document and rehearse the redeploy-previous-zip path once, before it is needed |
-| ARR affinity fails silently for cookie-blocking clients | Unknown unknowns | L | H | Stay single-instance for MVP; before scaling out, configure Data Protection keys in shared storage and test affinity with cookies disabled |
+| ARR affinity fails silently for cookie-blocking clients | Unknown unknowns | L | H | Stay single-instance for MVP; test affinity with cookies disabled before trusting it above one worker. **The Data Protection half of this row closed 2026-09-10 in `F-02`** — the ring persists to the `DataProtectionKeys` table (see Getting Started item 3), and it was never a scaling concern in the first place: an ephemeral ring broke antiforgery at **one** instance on every restart. Affinity is what remains scaling-shaped |
 | Auto-pausing database tiers blow the 2s acknowledgement budget on the first query after idle | Unknown unknowns | M | M | Do not take this risk to conserve credit that expires unspent (see `## Budget Posture`) — choose a provisioned tier that does not auto-pause (Azure SQL Basic/S0, or PostgreSQL Flexible Server B1ms). Measure cold-resume latency only if the free offer is chosen anyway |
 | Deploys drop live circuits mid-triage, losing untriaged candidates | Pre-mortem / Research finding | H | M | Deploy outside usage windows; customise the Blazor reconnect UI to explain what happened rather than showing the default grey overlay |
 | Agent reaches for deprecated `az webapp up` | Unknown unknowns | H | L | Record the deprecation in `TenExCards/AGENTS.md`; the correct command is `az webapp deploy --src-path` |
@@ -296,6 +300,10 @@ Rows carrying a date were observed on that date and should be re-verified rather
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false` turns `UseHttpsRedirection()` into an infinite redirect | Empirical test 2026-08-31 | L | H | The port alone returns `200`; the port **plus** disabled forwarded headers returns `307` with `Location` equal to the request URL. The Linux container supplies `X-Forwarded-Proto` by default, so neither setting should ever be added. Prefer deleting `UseHttpsRedirection()` from `Program.cs` — `--https-only` already redirects at the platform |
 | Nested zip deploys successfully, then the site 503s | Deployment run 2026-08-31 | M | H | The trailing `*` in `Compress-Archive -Path <publish>/*` is load-bearing. Assert the first entry is `TenExCards.dll`, not `publish/TenExCards.dll`, before every upload |
 | A deployment reporting `Succeeded` silently cleared a read-only plan property | Empirical test 2026-08-31 | M | M | `az deployment group create` on `infra/main.bicep` changed `properties.freeOfferExpirationTime` from `2026-09-30` to `null`; `what-if` predicted it correctly as `- Delete` and it was waved through because two genuine phantoms (`siteConfig.localMySqlEnabled`, `siteConfig.netFrameworkVersion`) sat in the same output. No `az` command restores it. Snapshot and diff around every template deployment |
+| A malformed Key Vault reference stores its literal string and never errors | Deployment run 2026-09-10 | M | H | App Service stores an unparseable `@Microsoft.KeyVault(...)` value verbatim and logs nothing; the app then receives the literal string as its connection string and fails at first use, not at configuration time. A versionless reference needs a **trailing slash** after the secret name — omitting it changes the meaning rather than erroring. Verify with an `az rest` GET on `config/configreferences/appsettings` expecting `"status": "Resolved"`; **not** `az resource show`, which cannot address that collection endpoint and answers `Not Found` — indistinguishable from a genuine failure |
+| RBAC role assignments propagate with a delay that presents as a permissions bug | Deployment run 2026-09-10 | M | M | Creating a vault does not grant its creator data-plane access under the RBAC permission model, and a fresh `Key Vault Secrets Officer` assignment can return `Forbidden` for a minute or two. The same delay applies to the *site's* identity: App Service resolves Key Vault references at app **start** and caches the outcome, so a reference set before propagation reports unresolved and does not re-heal. Treat the first non-`Resolved` reading as expected — restart, wait, read again — and escalate to the template only after that. Both `az keyvault secret set` calls in fact succeeded first time on 2026-09-10; the retry stays because the failure mode is silent, not because it fired |
+| A failed startup migration takes the app down with no slot to roll back to | Deployment run 2026-09-10 | L | H | `Database.Migrate()` runs on the boot path, so a migration that throws means the container does not serve — and B1 has no deployment slots. The rollback path is redeploying the retained previous archive, which does **not** reverse schema. Mitigations in force: migrations are forward-only, every migration is applied to `sqldb-tenexcards-dev` before the app's database sees it, the outcome is logged explicitly rather than left to an unhandled exception, and an archive is preserved before each publish. `F-02` deliberately fired the first real boot-path migration against an **empty** database so the risk was exercised while it was cheap, rather than first in `S-01` against a database holding accounts |
+| The "allow Azure services" firewall rule admits any Azure tenant | Deployment run 2026-09-10 | M | H | `AllowAllWindowsAzureIps` is a `0.0.0.0`–`0.0.0.0` entry, and that pair is a magic value rather than a range: it admits traffic originating anywhere in Azure — any subscription, any tenant. For Azure-originating traffic there is therefore **no network boundary**; the boundary is the SQL admin password, which is why it lives in the vault and never on a development machine. Pinning to the app's `possibleOutboundIpAddresses` was considered and declined: those IPs are shared across a scale unit, so it narrows "all of Azure" only to "every app on this scale unit" while breaking the app whenever the IP set rotates. Real isolation needs a private endpoint — out of scope at this tier and budget |
 
 ## Getting Started
 
@@ -316,14 +324,23 @@ What is left to do, in order:
    has ever been opened against this app, and the SignalR circuit is the reason this platform was
    chosen at all (see `## Recommendation`). Open one as part of the first Blazor change, before
    circuits carry user state.
-2. **When persistence is decided** — it is not; `TenExCards/AGENTS.md` requires asking before a
-   provider is chosen — prefer a **provisioned** tier over the auto-pausing free offer. The 2s
-   acknowledgement budget is the strictest NFR in the PRD and the trial credit exists to be spent
-   (see `## Budget Posture`). Azure SQL Basic/S0 and PostgreSQL Flexible Server B1ms both qualify.
-   Set the connection string as an app setting referencing Key Vault rather than inline.
-3. **Persist Data Protection keys in the same change that adds Identity.** They are not persistent
-   by default, and the key ring is lost on every container restart — breaking auth cookies and
-   antiforgery tokens at one instance, not only when scaling out.
+2. ~~**When persistence is decided** — prefer a provisioned tier over the auto-pausing free
+   offer.~~ **Resolved 2026-09-10 in `F-02` (`persistence-spine`): Azure SQL, S0 provisioned,**
+   `polandcentral`, beside the app. The guidance was followed rather than merely noted: S0 is
+   provisioned precisely so the first query after an idle period pays no resume latency against the
+   2s budget. The connection string is an app setting holding a **Key Vault reference**, resolved
+   through the site's system-assigned identity — never inline, never in the template. A second,
+   Basic database (`sqldb-tenexcards-dev`) exists for local development; that split is a boundary,
+   not tidiness, and `TenExCards/AGENTS.md` under `## Deployment` explains why. Measured cost of a
+   round-trip: `context/changes/persistence-spine/baseline.md`.
+3. ~~**Persist Data Protection keys in the same change that adds Identity.**~~ **Done 2026-09-10 in
+   `F-02`, not `S-01`.** The keys were pulled forward because `UseAntiforgery()` was already in the
+   pipeline, so the ephemeral ring was already protecting something. `Program.cs` calls
+   `PersistKeysToDbContext<AppDbContext>()`; verified by rendering a form, restarting the container,
+   and submitting the *already-rendered* form successfully. **`S-01` now verifies rather than
+   implements this** — and inherits one genuinely open item: the ring is stored **unencrypted**
+   (`DataProtectionKeys.Xml` is plaintext). Encryption at rest via `ProtectKeysWithAzureKeyVault` is
+   not done, and matters more once the same ring signs auth cookies.
 4. **Verify the circuit end to end**: load the app, submit a passage, and confirm the
    acknowledgement lands under 2s with progress visible for the full generation window, with
    `az webapp log tail` running in a second terminal.
