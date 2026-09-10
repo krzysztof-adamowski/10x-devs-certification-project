@@ -3,7 +3,7 @@ project: "10xCards"
 version: 1
 status: draft
 created: 2026-09-02
-updated: 2026-09-08
+updated: 2026-09-10
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -59,8 +59,8 @@ reason to exist.
 | ID   | Change ID                | Outcome (user can …)                                             | Prerequisites    | PRD refs                                               | Status   |
 | ---- | ------------------------ | ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------ | -------- |
 | F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | in-progress |
-| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | ready    |
-| F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | proposed |
+| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | in-progress |
+| F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | in-progress |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | proposed |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | proposed |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | proposed |
@@ -147,7 +147,7 @@ rather than reopening them.
   `S-02`. Two recorded traps sit here: an auto-pausing tier silently breaks the acknowledgement
   requirement, and declaring application settings inside infrastructure-as-code makes a routine,
   successful-looking deployment delete the connection string.
-- **Status:** ready
+- **Status:** in-progress
 
 ### F-03: Merges deploy themselves
 
@@ -177,7 +177,7 @@ rather than reopening them.
   already works. It earns its place on repetition: with six slices left and a deadline twelve days
   out, every one of them gets deployed and verified, and the archive-shape trap is a once-per-deploy
   chance to lose an evening. If time compresses, this is the first foundation to Park.
-- **Status:** proposed
+- **Status:** in-progress
 
 ## Slices
 
