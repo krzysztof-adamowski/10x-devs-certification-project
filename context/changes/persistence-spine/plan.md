@@ -967,36 +967,36 @@ painful one.
 
 #### Automated
 
-- [x] 3.1 Rollback archive exists with its byte size recorded before publish runs
-- [x] 3.2 All three archive shape assertions pass
-- [x] 3.3 az webapp deploy reports RuntimeSuccessful with 1/1 instances
-- [x] 3.4 GET / and GET /db-check both return 200 on the live host
-- [x] 3.5 Every css/js URL referenced by the rendered /db-check page returns 200
-- [x] 3.6 Startup log shows no unhandled exception and no key-persistence warning
-- [x] 3.7 No repeated restart loop after deployment
-- [x] 3.8 Startup log shows InitialSpine applied on the boot path to the app database
+- [x] 3.1 Rollback archive exists with its byte size recorded before publish runs — c2a7101
+- [x] 3.2 All three archive shape assertions pass — c2a7101
+- [x] 3.3 az webapp deploy reports RuntimeSuccessful with 1/1 instances — c2a7101
+- [x] 3.4 GET / and GET /db-check both return 200 on the live host — c2a7101
+- [x] 3.5 Every css/js URL referenced by the rendered /db-check page returns 200 — c2a7101
+- [x] 3.6 Startup log shows no unhandled exception and no key-persistence warning — c2a7101
+- [x] 3.7 No repeated restart loop after deployment — c2a7101
+- [x] 3.8 Startup log shows InitialSpine applied on the boot path to the app database — c2a7101
 
 #### Manual
 
-- [x] 3.9 /db-check on the live host writes a row and the count increments on the re-rendered page
-- [x] 3.10 After az webapp restart, probe rows survive and no new key row was created
-- [x] 3.11 A /db-check form rendered before the restart is still accepted after it, not rejected with 400
-- [x] 3.12 Database round-trip timings recorded in baseline.md with their conditions
-- [x] 3.13 The measured round-trip leaves the 2s budget intact with room for an LLM call
+- [x] 3.9 /db-check on the live host writes a row and the count increments on the re-rendered page — c2a7101
+- [x] 3.10 After az webapp restart, probe rows survive and no new key row was created — c2a7101
+- [x] 3.11 A /db-check form rendered before the restart is still accepted after it, not rejected with 400 — c2a7101
+- [x] 3.12 Database round-trip timings recorded in baseline.md with their conditions — c2a7101
+- [x] 3.13 The measured round-trip leaves the 2s budget intact with room for an LLM call — c2a7101
 
 ### Phase 4: Update the repository's own record
 
 #### Automated
 
-- [ ] 4.1 grep for "Persistence is undecided" in AGENTS.md returns nothing
-- [ ] 4.2 AGENTS.md contains all seven enumerated edits
-- [ ] 4.3 deploy-plan.md contains a new dated deployment record naming the database and vault
-- [ ] 4.4 roadmap.md shows Open Question 1 resolved, the S-01 persistence claim corrected, and the F-02 no-schema claim restated
-- [ ] 4.5 infrastructure.md has four new risk rows, the DP-keys item reassigned, and forward-only wording matching AGENTS.md
-- [ ] 4.6 Release build is still clean
+- [x] 4.1 grep for "Persistence is undecided" in AGENTS.md returns nothing
+- [x] 4.2 AGENTS.md contains all seven enumerated edits
+- [x] 4.3 deploy-plan.md contains a new dated deployment record naming the database and vault
+- [x] 4.4 roadmap.md shows Open Question 1 resolved, the S-01 persistence claim corrected, and the F-02 no-schema claim restated
+- [x] 4.5 infrastructure.md has four new risk rows, the DP-keys item reassigned, and forward-only wording matching AGENTS.md
+- [x] 4.6 Release build is still clean
 
 #### Manual
 
-- [ ] 4.7 AGENTS.md reads start to finish with no dangling antecedents
-- [ ] 4.8 All four records agree about what exists and how the connection string reaches the app
-- [ ] 4.9 No new file:line citation was introduced that a later edit would invalidate
+- [x] 4.7 AGENTS.md reads start to finish with no dangling antecedents
+- [x] 4.8 All four records agree about what exists and how the connection string reaches the app
+- [x] 4.9 No new file:line citation was introduced that a later edit would invalidate

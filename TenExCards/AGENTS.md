@@ -12,7 +12,7 @@ are written from there: `context/`, `infra/`, `scripts/` and `.github/` are sibl
 `TenExCards/`, not children of it. The one exception is product code, named relative to this
 file's own directory — `Program.cs` means `TenExCards/Program.cs` and
 `Components/Pages/Home.razor` means `TenExCards/Components/Pages/Home.razor`. That is also why
-`dotnet` needs `TenExCards/`; see `## Working in this directory`.
+`dotnet` needs `TenExCards/` — `cd` there, or pass `--project TenExCards/TenExCards.csproj`.
 
 *Slice IDs.* `F-nn` and `S-nn` are roadmap slices, each defined in
 `context/foundation/roadmap.md` alongside the change-id that implements it. Look one up there
@@ -95,9 +95,10 @@ Product:
   restart drops every circuit. Enforce the passage-length bound *before* generation begins.
 - **Never use FluentAssertions.** Assertions use AwesomeAssertions; see `## Testing`.
 
-Deployment — each bullet is the rule; `## Deployment` holds what an agent will encounter and
-could misread: silent failure modes, false positives, and the exact strings they appear as.
-A new fact goes in one or the other, never both:
+Deployment — each bullet is the rule **and the consequence that enforces it**, because a
+prohibition without its failure mode is one an agent talks itself out of. `## Deployment` holds
+the diagnostic detail that consequence implies: the commands, the dates, the exact strings, and
+how to tell a false positive from a real one. A fact goes in one or the other, never both:
 
 - **Never run `az webapp up`.** It is deprecated. Deploy with
   `az webapp deploy --src-path <zip> --type zip`.
@@ -131,15 +132,10 @@ A new fact goes in one or the other, never both:
   (`ProtectKeysWithAzureKeyVault`) is **open and owned by `S-01`** — do not read the persistence
   sentence above as covering it.
 - **Never set `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false`, and never add `ASPNETCORE_HTTPS_PORT`.**
-  Forwarded-header processing is **on by platform default** on the Linux .NET container, which is
-  why *disabling* it is what breaks things — setting it to `false` is not a no-op. It is what makes
-  `Request.IsHttps` true, and `UseHsts()` emits its header only when `Request.IsHttps`, so turning
-  it off **silently** stops HSTS: no warning, no log line, no failing request. When Identity lands
-  it will also strip `Secure` from auth cookies under the default `CookieSecurePolicy.SameAsRequest`.
-  The port is harmless on its own, and harmless today only because `UseHttpsRedirection()` is gone;
-  the `307` redirect loop measured on 2026-08-31 needed the port, the disabled variable **and**
-  that middleware. Neither variable is needed. Measurements: `## Deliberately not set` in
-  `context/deployment/deploy-plan.md`.
+  Neither is needed, and setting the first to `false` is not a no-op: it **silently** stops HSTS —
+  no warning, no log line, no failing request — and once Identity lands it also strips `Secure`
+  from auth cookies under the default `CookieSecurePolicy.SameAsRequest`. Mechanism and the `307`
+  loop: `### HTTPS: what enforces it, and what must never be set`.
 - **Never run `az deployment group create` with `--mode Complete`.** It deletes every resource
   in the group absent from the template — the plan and web app included. Incremental is the
   default and the only mode used here.
@@ -170,13 +166,10 @@ A new fact goes in one or the other, never both:
   on, and the `Down()` method EF generates is not a rollback story. Before any migration reaches
   the app's database, apply it to `sqldb-tenexcards-dev` first and keep the previous archive.
 - **Never dismiss an `az deployment group what-if` deletion as noise — and never trust a clean
-  one either.** Snapshot, deploy, then diff, *regardless of how the prediction looks*. Some
-  predictions on `Microsoft.Web/*` are phantoms and at least one was real, and nothing in the
-  output tells them apart. It also **under-reports**: on 2026-09-08 it predicted only the two known
-  phantoms on the site and never mentioned the `identity: SystemAssigned` block that was the
-  deployment's one intended change and did land. The resource type is unreliable in both
-  directions, so a boring what-if is not evidence that nothing will change — only the post-deploy
-  diff is. `infra/main.bicep` carries a dated characterisation above each resource.
+  one either.** Snapshot, deploy, then diff, *regardless of how the prediction looks*. On
+  `Microsoft.Web/*` it is unreliable in **both** directions, so a boring what-if is not evidence
+  that nothing will change — only the post-deploy diff is. Which predictions are phantoms and
+  which was real: `### what-if: telling a real deletion from a phantom`.
 
 These are recorded decisions, not omissions. The product rules trace to `## Non-Goals` and
 `## Non-Functional Requirements` in `context/foundation/prd.md`; the deployment rules to
@@ -303,20 +296,20 @@ or a valid tenant level resource provider`. ARM is fine; use `az rest` against
 a Blazor circuit's state lives in memory on exactly one instance. This cannot manifest at one
 worker, so it surfaces first under load. Test affinity with cookies disabled before trusting it.
 
-**Data Protection keys are a separate concern, and it was never a scaling concern.** Keys are not
-persisted by default, and because the ring was lost on every container restart, auth cookies and
-antiforgery tokens broke at **one** instance too — on any deploy or platform recycle. Scaling out
-only added a second way to hit the same failure. **`F-02` closed this on 2026-09-10**: the ring
-persists to the `DataProtectionKeys` table and survived a restart with the same key id. Encryption
-at rest did not follow it — see `## Never do these`. What remains genuinely scaling-shaped is ARR
-affinity above, not the keys.
+**Data Protection keys are not a scaling concern and never were** — an ephemeral ring broke
+antiforgery at **one** instance, on every restart, and `F-02` closed that on 2026-09-10. See
+`## Never do these` for the rule, what `S-01` still owes it, and why encryption at rest did not
+follow. What remains genuinely scaling-shaped is ARR affinity above, not the keys.
 
 ### HTTPS: what enforces it, and what must never be set
 
-The Linux .NET container supplies `X-Forwarded-Proto`, so `Request.IsHttps` is already correct.
-Setting `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false` and adding `ASPNETCORE_HTTPS_PORT` together
-produced a `307` to the request's own URL — an infinite redirect — back when
-`UseHttpsRedirection()` was still in the pipeline; the port alone is harmless. Measurements are in
+The Linux .NET container supplies `X-Forwarded-Proto` and forwarded-header processing is **on by
+platform default**, so `Request.IsHttps` is already correct — which is why *disabling* it is what
+breaks things rather than a no-op. `UseHsts()` emits its header only when `Request.IsHttps`, so
+turning it off just stops HSTS. Setting `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false` and adding
+`ASPNETCORE_HTTPS_PORT` together produced a `307` to the request's own URL — an infinite redirect —
+back when `UseHttpsRedirection()` was still in the pipeline; the port alone is harmless, and
+harmless today only because that middleware is gone. Measurements are in
 `context/deployment/deploy-plan.md` under `## Deliberately not set`.
 
 **`UseHttpsRedirection()` was removed on 2026-09-08 and is not coming back.** The platform is now
@@ -349,13 +342,13 @@ phantoms that change nothing. But on 2026-08-31 a predicted
 `- properties.freeOfferExpirationTime` on the plan was **real**: a deployment reporting
 `Succeeded` cleared it, and no `az` command restores it.
 
+It also **under-reports**: on 2026-09-08 it predicted only those two phantoms on the site and never
+mentioned the `identity: SystemAssigned` block that was the deployment's one intended change and
+did land.
+
 Nothing in the output separates the two. Snapshot (`az appservice plan show`,
 `az webapp config show`, `az webapp config appsettings list`), deploy, then diff.
-
-## Working in this directory
-
-Agent sessions are rooted at the repo root, so `dotnet` needs `TenExCards/` — `cd` here
-or pass `--project TenExCards/TenExCards.csproj`.
+`infra/main.bicep` carries a dated characterisation above each resource.
 
 ## Testing
 

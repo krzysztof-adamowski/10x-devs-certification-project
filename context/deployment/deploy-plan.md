@@ -481,3 +481,181 @@ B1 has no deployment slots, so rollback is manual. `TenExCards/bin/publish-scaff
 (git-ignored, 372,646 bytes) is the exact archive that served production from 2026-08-31 until
 this deploy; redeploy it with the same `az webapp deploy` command. If that file is lost, rebuild
 from commit `035e064`: `git checkout 035e064 -- TenExCards/`, publish, zip, redeploy.
+
+---
+
+# Deployment record — executed 2026-09-10
+
+Change `persistence-spine` (`F-02`), phases 1 and 3. Phase 1 provisioned the persistence
+infrastructure; phase 3 deployed the application code that uses it. This record covers both,
+because the ordering between them is the whole design: **the Key Vault reference was proven to
+resolve while the deployed app still contained no EF Core code at all**, so that when the code
+landed the only new variables were the archive and the platform.
+
+Measurements are **not** copied here. `context/changes/persistence-spine/baseline.md` is their
+single home.
+
+## What was provisioned
+
+Declared in `infra/main.bicep`, deployed as `persistence-spine-p1`, `Succeeded`, **Incremental**
+(never `--mode Complete`):
+
+| Resource | Name | Notes |
+| --- | --- | --- |
+| SQL logical server | `sql-tenexcards-plc` | `polandcentral`, `minimalTlsVersion` 1.2 |
+| App database | `sqldb-tenexcards` | S0 / Standard, provisioned — not auto-pausing |
+| Development database | `sqldb-tenexcards-dev` | Basic |
+| Firewall rule | `AllowAllWindowsAzureIps` | `0.0.0.0`–`0.0.0.0` |
+| Key Vault | `kv-tenexcards-plc` | RBAC, purge protection unset, 7-day retention |
+| Role assignment | `4d35348c-…` | Key Vault Secrets User → the site's identity |
+| Site identity | `a3558bdf-861d-464a-a071-e279dfe12ba9` | system-assigned; added to the existing `site` |
+
+## Two subscription-level mutations that `az group delete` does NOT undo
+
+`Microsoft.Sql` and `Microsoft.KeyVault` were both `NotRegistered` and were registered with
+`az provider register`. Registration is asynchronous — poll, do not assume; both took ~45 s.
+
+This is the same class of silent, irreversible change the 2026-08-31 record notes for
+`Microsoft.Web`. Deleting the resource group leaves both registered. Note also that
+`az sql db list-editions -l polandcentral` returns `SubscriptionNotFound` *before* registration —
+which reads like a region problem and is not.
+
+## The application deploy
+
+Deployment `10dd25fc-9cac-4c10-9f90-4f5c7b818786` — `RuntimeSuccessful`, 1/1 instances,
+0 failed, `Site started successfully` after 93 s.
+
+The archive was **not** hand-built. `F-03` landed `scripts/pack.py` and `scripts/verify_deploy.py`
+in parallel with this change, and this deploy is the first to use them:
+
+```powershell
+dotnet publish TenExCards/TenExCards.csproj -c Release
+python scripts/pack.py            # 77 entries, 27,676,619 bytes — all four assertions PASS
+az webapp deploy -g rg-tenexcards-plc -n tenexcards-ka --src-path TenExCards/bin/publish.zip --type zip --track-status true
+python scripts/verify_deploy.py   # / and all 5 same-origin assets 200
+python scripts/verify_deploy.py --base-url https://tenexcards-ka.azurewebsites.net/db-check
+```
+
+`scripts/` is now the authority on the archive shape rules; the prose in `TenExCards/AGENTS.md`
+describes them and does not duplicate them.
+
+## The migration ran on the boot path, against an empty database
+
+This was the plan's most-guarded risk — a failed startup migration means the container does not
+serve, on a tier with no slot rollback — so it was arranged to fire while the database was empty
+and disposable rather than first in `S-01` against a database holding accounts.
+
+Phase 2 verified everything against `sqldb-tenexcards-dev`, leaving `sqldb-tenexcards` with **zero
+tables**, confirmed immediately before the deploy. The startup log then shows:
+
+```
+20:36:11  info: Program[0]  Applying 1 pending migration(s): 20260910190508_InitialSpine
+20:36:11  CREATE TABLE [__EFMigrationsHistory] ( …
+20:36:12  CREATE TABLE [DataProtectionKeys] ( …
+20:36:12  CREATE TABLE [SpineProbes] ( …
+20:36:12  info: Program[0]  Migrations applied successfully.
+20:36:14  Application started.
+```
+
+The migration itself took ~0.8 s of the 93 s; the rest is container start.
+
+## Looks like a failure but is not — a new case
+
+**A `BadImageFormatException` plus a bogus routing error during the file-swap window.** At
+`20:35:03`, **68 seconds before the new container started**, the log carries:
+
+```
+System.BadImageFormatException: Index not found. (0x80131124)
+System.InvalidOperationException: The type TenExCards.Components.Pages.NotFound
+  does not have a Microsoft.AspNetCore.Components.RouteAttribute applied to it
+```
+
+This is the **outgoing** container reading type metadata from files being replaced under it
+mid-extraction. The second message is a lie produced by the first: reflection over torn metadata
+returned no attributes, so the router concluded there were none. `NotFound.razor` does carry
+`@page "/not-found"`.
+
+Verified against the running app rather than argued: three nonexistent URLs all returned `404`
+with the not-found page rendering and no exception page. Nothing failed after `20:36:14`.
+
+Do not go editing `NotFound.razor`. The test is whether 404s work *after* the new container
+starts.
+
+**Also expected, and not the warning it resembles:** `No XML encryptor configured. Key {…} may be
+persisted to storage in unencrypted form.` This appears only on the boot that *mints* a key, so it
+is easy to miss and easy to confuse with the keys-*not-persisted* warning, which is now gone. See
+`TenExCards/AGENTS.md` under `## Never do these`.
+
+## Secrets and the reference
+
+Four secrets, all written with `az keyvault secret set --file` — never `--value`, which the CLI
+warns about, and never as a command argument, because Windows PowerShell 5.1 keeps
+`ConsoleHost_history.txt` indefinitely:
+
+| Secret | Purpose |
+| --- | --- |
+| `sql-admin-password` | the `@secure()` template parameter, for every future deployment |
+| `sql-connection-string` | what the deployed app consumes |
+| `sql-dev-user-password` | the contained `tenexdev` user — **only copy** |
+| `sql-dev-connection-string` | what local `dotnet user-secrets` holds |
+
+The plan specified two; the `-dev` pair was added during phase 1 because the contained user is
+created in phase 1 and consumed in phase 2 and had nowhere durable to live in between.
+
+One app setting, set with `az webapp config appsettings set`:
+
+```
+ConnectionStrings__DefaultConnection=@Microsoft.KeyVault(SecretUri=https://kv-tenexcards-plc.vault.azure.net/secrets/sql-connection-string/)
+```
+
+The **trailing slash** makes it versionless, so a rotated secret is picked up. Omitting it changes
+the meaning rather than erroring. Under Windows PowerShell 5.1 a leading `@` with parentheses is
+array-subexpression syntax — quote the value. The reference itself is a pointer, not a secret.
+
+Checking that it resolved is **not** `az resource show` — that endpoint returns a collection, so
+that command answers `Not Found`, which is indistinguishable from a real failure. The working form
+is an `az rest` GET against `config/configreferences/appsettings`; see `TenExCards/AGENTS.md`.
+
+**`az role assignment` is unusable on this subscription** — every command in the group, including
+`az role definition list`, returns `(MissingSubscription)`. ARM is fine via `az rest`.
+
+## what-if on the new resource types
+
+Characterised against an empty database and written into `infra/main.bicep` above each resource.
+No `- Delete` was predicted on anything, in either the pre- or post-deploy run. Permanent phantoms
+found:
+
+- `Microsoft.Sql/servers/databases` — `Modify sku.name: 'Standard' -> 'S0'`. The GET returns the
+  *tier* in `sku.name`; the template declares the *service objective*. The most alarming-looking
+  line the template produces, and pure noise.
+- `Microsoft.Authorization/roleAssignments` — `Modify properties.principalId`, diffing the resolved
+  GUID against the literal unevaluated `[reference(...)]` expression.
+- `Microsoft.KeyVault/vaults` and `Microsoft.Sql/servers/firewallRules` — clean, no phantoms.
+
+And the inverse: what-if **did not predict** the `identity: SystemAssigned` addition, which was the
+deployment's one intended change and did land. `Microsoft.Web/*` is unreliable in both directions.
+
+## Teardown — additions to the command above
+
+`az group delete` removes the server, both databases and the vault, but:
+
+- **The vault's name is reserved for 7 days** by soft-delete. Recreating `kv-tenexcards-plc` needs
+  `az keyvault purge --name kv-tenexcards-plc` first. Purge protection is deliberately **off** so
+  that the single-command teardown keeps working.
+- **Both provider registrations survive.** Nothing undoes them.
+- **Three data-plane objects are declared in no template** and must be recreated by hand: the four
+  vault secrets, the contained `tenexdev` user (T-SQL, in the dev database), and the
+  development-machine firewall rule `dev-machine-krzychu`. The `-dev` secrets are the only copy of
+  the contained user's credential.
+
+## Rollback
+
+`TenExCards/bin/publish-shell-rollback.zip` (git-ignored, **497,970 bytes**, 28 entries, no EF
+assemblies) is the archive that served production before this deploy; redeploy it with the same
+`az webapp deploy` command. If lost, rebuild from commit `8b0bdbf` — the last commit before
+`e6d3949` added EF Core.
+
+**It does not reverse the migration.** `InitialSpine` has been applied to `sqldb-tenexcards`, and
+redeploying the shell leaves those three tables in place. That is harmless here — the old code
+simply ignores them — but it is the general shape of the forward-only rule: the archive is the
+rollback path for *code*, and there is no rollback path for *schema*.

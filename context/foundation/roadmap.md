@@ -99,7 +99,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
   there is no `.github/` directory at all, so zero CI workflows exist despite `tech-stack.md`
   declaring auto-deploy-on-merge as a decision. No container definition.
 - **Observability:** partial (platform-only) — App Service filesystem logs at `Information`, retained
-  3 days / 100 MB (`infra/main.bicep:165`). No telemetry service, no workspace, no health endpoint,
+  3 days / 100 MB (`retentionInDays` / `retentionInMb` on the `logs` resource in
+  `infra/main.bicep`). No telemetry service, no workspace, no health endpoint,
   and no logging configuration inside the application.
 
 Confirmed by the user, with one amendment recorded: the Blazor Server, Identity, Azure App Service,
@@ -143,10 +144,13 @@ rather than reopening them.
   - Which database provider and tier? The infrastructure risk register rules out auto-pausing tiers,
     because the first query after an idle period can exceed the entire 2-second acknowledgement
     budget — Owner: user (resolved downstream as course-work). Block: no.
-- **Risk:** Deliberately designs no schema — identity tables arrive with `S-01`, the card entity with
-  `S-02`. Two recorded traps sit here: an auto-pausing tier silently breaks the acknowledgement
-  requirement, and declaring application settings inside infrastructure-as-code makes a routine,
-  successful-looking deployment delete the connection string.
+- **Risk:** Deliberately designs no **domain** schema — identity tables still arrive with `S-01` and
+  the card entity with `S-02`. Two tables exist (`SpineProbes`, a throwaway `S-01` deletes, and
+  `DataProtectionKeys`), and neither models anything about the product. Three recorded traps sit
+  here: an auto-pausing tier silently breaks the acknowledgement requirement; declaring application
+  settings inside infrastructure-as-code makes a routine, successful-looking deployment delete the
+  connection string; and `Database.Migrate()` on the boot path means a bad migration takes the app
+  down on a tier with no slot rollback, with no schema reversal available.
 - **Status:** in-progress
 
 ### F-03: Merges deploy themselves
@@ -197,9 +201,17 @@ rather than reopening them.
 - **Risk:** Identity's signing keys are not persisted by default, and the failure this causes looks
   like a scaling problem while actually biting at a single instance: every container restart —
   deploy, platform maintenance, recycle — logs every user out and starts rejecting form submissions.
-  The repository rule is that key persistence ships in the same change that adds identity, so it
-  belongs here rather than in a later hardening pass. This is also the first slice to touch
-  persistence, so the test project is created here and its tests ship alongside this code.
+  **`F-02` already closed this**, because `UseAntiforgery()` meant the ephemeral ring was already
+  protecting something; the ring persists to the database and survived a restart. So this slice
+  **verifies rather than implements** it — render a form, restart the container, submit the
+  already-rendered form and confirm it is accepted rather than rejected with `400`. Checking that
+  the key count did not change is necessary but not sufficient: a ring with no reason to rotate
+  looks identical to a working one. What `F-02` did **not** do is encrypt the ring at rest — it is
+  plaintext in `DataProtectionKeys.Xml`, which only buys token forgery today but becomes session
+  forgery the moment this slice makes the same keys sign auth cookies. That is this slice's to
+  weigh. This is also the first slice to persist **account-scoped** data, so the test project is
+  created here and its tests ship alongside this code; `F-02` touched persistence first but
+  contains no deterministic rule to test.
 - **Status:** proposed
 
 ### S-02: Learner turns a pasted passage into saved cards
@@ -313,12 +325,21 @@ to copy into issues, but it must not duplicate the detailed roadmap body.
 
 ## Open Roadmap Questions
 
-1. **Which database provider and tier?** No provider was ever chosen — the stack rationale names an
-   ORM only as an ecosystem strength. The infrastructure risk register rules out auto-pausing tiers,
-   because the first query after an idle period can exceed the whole 2-second acknowledgement budget;
-   the budget posture also records that a paid tier inside the existing credit costs nothing extra,
-   since unspent credit expires worthless. Owner: user — to be resolved downstream as course-work.
-   Block: `F-02`, and through it every persisting slice. Non-blocking by the user's explicit decision.
+1. ~~**Which database provider and tier?** No provider was ever chosen — the stack rationale names
+   an ORM only as an ecosystem strength.~~ **Resolved 2026-09-10 in `F-02`:** EF Core against
+   **Azure SQL, S0 provisioned**, in `polandcentral` beside the app. The tier is the decision, not
+   the product: the risk register rules out auto-pausing tiers because the first query after an idle
+   period can exceed the whole 2-second acknowledgement budget, and the budget posture records that
+   a paid tier inside the existing credit costs nothing extra since unspent credit expires
+   worthless. S0 is the cheapest provisioned tier that removes that risk. A second Basic database
+   serves local development, so a `Database.Migrate()` on the boot path cannot let a working-tree
+   migration reach the database the live site serves from, and the Data Protection key ring — which
+   has no per-application partition — stays off development machines. The connection string reaches
+   the app as a Key Vault reference resolved through the site's system-assigned identity, so it is
+   in neither the repository nor `infra/main.bicep`. Verified on the deployed instance: the
+   reference reports `Resolved`, `/db-check` writes and reads across a container restart, and the
+   first migration was applied on the boot path to a database that had zero tables. Owner: user.
+   Was blocking: `F-02`, and through it every persisting slice.
 2. **Which model provider generates the candidates?** No client, package, or configuration exists.
    Note that low request volume does not imply low cost — generation is expensive per request
    regardless of how rarely it occurs. Owner: user — to be resolved downstream as course-work.
@@ -331,7 +352,8 @@ to copy into issues, but it must not duplicate the detailed roadmap body.
    `app.UseHttpsRedirection()` was removed from `Program.cs`, deliberately rather than as a
    drive-by — the .NET 10 Blazor template ships that line itself, so this is a considered deletion
    from freshly generated code. The coupling concern that kept the question open is answered by
-   *where* the enforcement is declared: `infra/main.bicep:96` sets `httpsOnly: true`, so it lives
+   *where* the enforcement is declared: the `site` resource in `infra/main.bicep` sets
+   `httpsOnly: true`, so it lives
    in the infrastructure source of truth rather than in a CLI flag someone once typed. `UseHsts()`
    is kept, because HSTS and `httpsOnly` cover different moments — the platform redirects after a
    plain-HTTP request has been made, HSTS stops the browser making it. Verified on the deployed

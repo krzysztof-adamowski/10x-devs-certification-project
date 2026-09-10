@@ -21,9 +21,10 @@ and Railway do not support it at all, and Fly.io documents its equivalent as "an
 optimization, not a guarantee". App Service also took all five agent-friendly criteria,
 pairs with a co-located managed relational database — Azure SQL, whose free offer is GA and
 whose provisioned tiers sit comfortably inside the trial credit — answering the co-location
-preference. The persistence decision in `tech-stack.md` itself remains open; see
-`## Budget Posture` and `TenExCards/AGENTS.md`, which requires asking before a provider is
-chosen. It matches the platform familiarity recorded in the interview — which carries real
+preference. That co-location bet paid out: `F-02` chose **Azure SQL, S0 provisioned**, on
+2026-09-10 — see `## Getting Started` item 2 for the decision and its reasoning. This paragraph
+described the choice as still open until then; it is not, and the provider question is closed.
+It matches the platform familiarity recorded in the interview — which carries real
 weight against a three-week, after-hours deadline. It was already the `deployment_target` in `tech-stack.md`; this research confirms
 that default rather than inheriting it.
 
