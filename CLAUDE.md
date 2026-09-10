@@ -5,6 +5,24 @@ Decision chain: `context/foundation/prd.md` → `tech-stack.md` → `infrastruct
 `context/deployment/deploy-plan.md` (authoritative for deploy commands).
 `infra/main.bicep` is the source of truth for infrastructure state.
 
+## Shell mechanics on this machine
+
+Two failure modes recur and both waste round-trips. They are mechanical, not judgement calls.
+
+- **Never author file content with a Bash heredoc.** Bash runs via `bash -c '<command>'`, so a
+  heredoc body is quoted twice before bash parses it. Bodies containing markdown — backticks,
+  tables, apostrophes (`plan's`), em-dashes — break that round-trip and fail as
+  ``unexpected EOF while looking for matching `'``, which misleadingly names the terminator rather
+  than the content. Write and Edit are the tools for file content; heredocs are for code and
+  commands (`python - <<'PYEOF'` with pure code, `git commit -F - <<'MSG'`) only.
+  **After one heredoc parse failure, switch to Write — do not retry a different heredoc form.**
+
+- **Never pass `/tmp` paths between Bash and a Windows program.** Git Bash resolves `/tmp` to a
+  Windows temp directory; Python, `az` and `sqlcmd` do not resolve it at all, so a file written by
+  `curl -o /tmp/x.json` is invisible to a Python script opening `/tmp/x.json`. Anything that crosses
+  that boundary goes in the session scratchpad, referenced by its Windows-style path
+  (`C:/Users/.../scratchpad/x.json`). Bash-only temporaries may stay in `/tmp`.
+
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
 ## 10xDevs AI Toolkit - Module 2, Lesson 3
