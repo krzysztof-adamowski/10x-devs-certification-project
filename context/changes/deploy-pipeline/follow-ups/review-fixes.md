@@ -66,3 +66,55 @@ the traceability the `(p<N>)` convention exists to provide.
   style; `pack.py`'s `.replace("\\", "/")` would silently rewrite a POSIX filename containing a
   literal backslash, the one input that could make assertion 3 report a falsehood. None are live
   defects against `dotnet publish` output.
+
+## Phase 5 — carry the 2026-09-10 OIDC subject collision into the record
+
+Raised during Phase 4, not by the Phase 1–2 review. Three separate artefacts need it.
+
+**1. `TenExCards/AGENTS.md`, `## Deployment`.** Add a lived, dated rule. Draft text:
+
+> **Never hand-type a GitHub OIDC federated-credential subject.** This repository has
+> `use_immutable_subject: true`, so GitHub presents
+> `repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main` — not the name-based form its own
+> documentation shows. A credential built from the documented form matches nothing, on any ref, and
+> fails only at the first workflow run as `AADSTS700213`. Build the subject from
+> `gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix`. Measured
+> 2026-09-10.
+
+This is a *lived* rule in the sense of [[proposed-ops-failure-criterion]] — keep it dated and do not
+file it among the doc-derived ones.
+
+**2. `context/deployment/deploy-plan.md`.** Covered by the extended criterion 5.11: which credential
+is live, why `gh-main` is retained rather than deleted, and that OIDC does not close the
+push-to-`main` trust boundary.
+
+**3. The plan's Phase 3 block was corrected in place** (2026-09-10, at the user's explicit
+direction — the second sanctioned exception to the read-only-phase-block rule in this change). The
+contract, the command block, and manual criterion 3.7 now carry the correction. Phase 3's rows stay
+`[x]` against `765e2bc`; the work was done correctly against a specification that was wrong.
+
+**The reviewable point, if this is ever written up:** every Phase 3 criterion passed against a
+credential that could not authenticate, because each one checked conformance to the plan and none
+exchanged a token. Criterion 3.7 even predicted the symptom — "fails only at the first workflow run,
+with an opaque error." A phase that provisions an identity should end by *using* it, not by
+describing it.
+
+## Phase 5 — two smaller record corrections found in Phase 4
+
+- **Criterion 4.9's "~500 KB" is stale.** It predates `F-02`. The archive is now ~27.5 MB
+  (77 entries), because `Microsoft.Data.SqlClient` ships MSAL native broker binaries for every RID
+  — `linux-x64` alone is 36 MB uncompressed, and osx/win variants add ~15 MB more. Legitimate, not a
+  packaging fault. Publishing with a `linux-x64` RID would cut it dramatically; that is a future
+  change, deliberately not this one.
+- **Node 20 deprecation.** `actions/checkout@v4`, `actions/setup-dotnet@v4`,
+  `actions/upload-artifact@v4` and `azure/login@v2` are being force-run on Node 24 with a warning
+  annotation. Nothing is broken. Version bumps are outside this change's stated scope
+  (`## What We're NOT Doing` excludes action pinning); note it and move on.
+
+## Corrupted command block repaired in the plan (2026-09-10)
+
+Phase 5 §2's emergency restore block contained `"$env:TEMP` + a literal newline + `estore"` in two
+places — a `` escape collapsed when the plan was written. Repaired to `"$env:TEMPestore"`.
+Worth noting because criterion **5.12** asks whether the manual restore is reconstructable from the
+docs alone, and until this was fixed the honest answer was no. Verify the block runs before ticking
+5.12; do not read it and assume.

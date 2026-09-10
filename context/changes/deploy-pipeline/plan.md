@@ -563,21 +563,41 @@ OIDC ones.
 **Intent**: Let GitHub's OIDC token stand in for a secret, scoped to this repository and this branch.
 
 **Contract**: A federated identity credential on the app registration with issuer
-`https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`, and subject
-`repo:krzysztof-adamowski/10x-devs-certification-project:ref:refs/heads/main`.
+`https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`, and a subject
+**derived from GitHub's own OIDC customization endpoint** — never transcribed from documentation.
+
+> **Corrected 2026-09-10, after the first CI run failed.** This section originally specified the
+> subject as `repo:<owner>/<repo>:ref:refs/heads/main`. **This repository does not emit that form.**
+> It has `use_immutable_subject: true`, so GitHub presents numeric owner and repository IDs inside
+> the subject:
+> `repo:krzysztof-adamowski@322424024/10x-devs-certification-project@1350427864:ref:refs/heads/main`.
+> A credential built to the original text can never match any run, on any ref. Phase 3's success
+> criteria all passed against it anyway, because every one of them checked that the credential
+> matched *this plan* — none exchanged a token. The break surfaced only in Phase 4, as
+> `AADSTS700213`. Read `sub_claim_prefix` and build the subject from it; do not hand-type it.
 
 The subject is exact-match. A `workflow_dispatch` run on `main` produces this same subject, so the
 manual re-run path needs no second credential — but a run on any other ref will fail to
-authenticate, which is why Phase 1 blocks this one.
+authenticate, which is why Phase 1 blocks this one. The immutable form is the stronger of the two:
+it prevents a renamed or re-registered repository *name* from inheriting this Azure access.
 
 **Commands:**
 
 ```powershell
+# Derive the subject from GitHub; do not type it. `sub_claim_prefix` always carries the
+# owner/repo form this repository actually emits -- plain `repo:owner/name` on most
+# repositories, ID-augmented where `use_immutable_subject` is on. Hand-typing it is exactly
+# what produced AADSTS700213 on the first CI run.
+$PREFIX = gh api "repos/$REPO/actions/oidc/customization/sub" --jq ".sub_claim_prefix"
+if (-not $PREFIX) { $PREFIX = "repo:$REPO" }   # endpoint absent on older GitHub versions
+$SUBJECT = "${PREFIX}:ref:refs/heads/main"
+Write-Host "subject: $SUBJECT"
+
 $credFile = Join-Path $env:TEMP "gh-main-cred.json"
 @{
   name      = "gh-main"
   issuer    = "https://token.actions.githubusercontent.com"
-  subject   = "repo:${REPO}:ref:refs/heads/main"
+  subject   = $SUBJECT
   audiences = @("api://AzureADTokenExchange")
 } | ConvertTo-Json -Compress | Set-Content -Path $credFile -Encoding ascii
 
@@ -640,7 +660,14 @@ az ad app credential list --id $APPID --query "[].keyId" -o tsv
 
 - The subject string's repository owner and name match the actual remote exactly, character for
   character — compare against `gh repo view --json nameWithOwner -q .nameWithOwner`. A typo here
-  fails only at the first workflow run, with an opaque error
+  fails only at the first workflow run, with an opaque error.
+  **This criterion passed on 2026-09-10 and the credential still could not authenticate.** Owner
+  and name were correct; what was absent was the `@<owner_id>` / `@<repo_id>` suffix this
+  repository emits, which `nameWithOwner` cannot reveal. The criterion even named the failure mode
+  it would produce — "fails only at the first workflow run, with an opaque error" — and that is
+  exactly what happened. Compare against
+  `gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix` instead: it is
+  the only source that reflects what GitHub will actually present
 - If the contingency fired, the reason is written down for Phase 5
 - If the session gate stopped the phase, the user ran `az login` themselves — the agent did not
   attempt it
@@ -784,7 +811,11 @@ gh run watch $FIXED --exit-status
 
 - The workflow log's deploy step completes rather than hanging, confirming the `--track-status`
   decision
-- The live site serves the commit that triggered the run — check something visibly changed by it
+- The live site serves the commit that triggered the run — check something visibly changed by it.
+  **Deferred to Phase 5 on 2026-09-10.** The commit that introduced this workflow changes only
+  `.github/`, so CI deployed bits byte-identical to what was already live; a pass and a total no-op
+  are indistinguishable. Criterion **5.8** is this same check done properly, against the build
+  marker. Do not tick 4.8 by inspecting the site — there is nothing there to see
 - The artifact appears in the run's artifact list with the expected name and a plausible size
   (~500 KB, per the 2026-09-08 record)
 - No secret value appears anywhere in the run log
@@ -876,6 +907,24 @@ wrong.
 (OIDC, or the publish-profile contingency and why); the workflow and script paths; the cold-restore
 rehearsal result with the rollback-candidate run id; and the artifact retention window.
 
+It must also record **the OIDC subject collision of 2026-09-10** and its consequences, because the
+app registration now carries two federated credentials and nothing in Azure explains why:
+
+- `gh-main-immutable` is the live one — subject built from `sub_claim_prefix`, carrying the
+  `@<owner_id>` / `@<repo_id>` fragments this repository emits.
+- `gh-main` matches nothing and grants nothing. It is retained deliberately, as the credential that
+  would become live if `use_immutable_subject` were ever turned off. **Undocumented it is a trap**:
+  an auditor sees two credentials, cannot tell which is load-bearing, and has even odds of deleting
+  the working one while "removing the duplicate."
+- The real trust boundary is unchanged by any of this: anyone who can push to `main` can obtain the
+  token. Branch protection and a role narrower than `Contributor` are the controls that matter;
+  OIDC does not close that, and the record should not imply it does.
+
+Note also that criterion 4.9's "~500 KB" expectation is stale — it predates `F-02`. The archive is
+now ~27.5 MB, of which ~51 MB uncompressed is MSAL native broker binaries shipped for every RID by
+`Microsoft.Data.SqlClient`. Legitimate, not a packaging fault; a `linux-x64` RID would cut it, and
+that is a future change, not this one.
+
 It must also carry **the emergency restore procedure as literal commands**, because automating it is
 deferred and an undocumented manual path is the same failure this change exists to remove — a rule
 that lives only in someone's memory. Written out, it is:
@@ -883,10 +932,8 @@ that lives only in someone's memory. Written out, it is:
 ```powershell
 # Restore a previously deployed build from its retained artifact (90-day window).
 gh run list --workflow=deploy.yml --status success --limit 10 --json databaseId,headSha,createdAt
-gh run download <run-id> --dir "$env:TEMP
-estore"
-$zip = (Get-ChildItem "$env:TEMP
-estore" -Recurse -Filter *.zip | Select-Object -First 1).FullName
+gh run download <run-id> --dir "$env:TEMP\restore"
+$zip = (Get-ChildItem "$env:TEMP\restore" -Recurse -Filter *.zip | Select-Object -First 1).FullName
 az webapp deploy -g rg-tenexcards-plc -n tenexcards-ka --src-path $zip --type zip `
   --track-status false --enriched-errors true
 python scripts/verify_deploy.py
@@ -995,7 +1042,12 @@ python scripts/verify_deploy.py
   production was not mutated to prove it
 - `TenExCards/AGENTS.md` reads start to finish as a fresh agent would, with no dangling reference to
   a manual ritual that no longer applies and no lost reasoning
-- The new `deploy-plan.md` record states which authentication path was taken and why
+- The new `deploy-plan.md` record states which authentication path was taken and why, records the
+  2026-09-10 OIDC subject collision, and says plainly why the app registration carries two federated
+  credentials — which one is live, and that the other is retained on purpose rather than left behind
+- The record does not imply OIDC closed the deployment trust boundary: push access to `main` still
+  yields the token, and branch protection plus a role narrower than `Contributor` are what would
+  narrow it
 - Someone could reconstruct the emergency manual deploy from the docs alone, using the same script CI
   uses
 
@@ -1130,19 +1182,19 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 
 #### Automated
 
-- [ ] 4.1 `gh workflow view deploy.yml` returns the workflow — GitHub parsed and registered it
-- [ ] 4.2 A push to `main` produces a run with conclusion `success`
-- [ ] 4.3 The downloaded artifact passes all four assertions locally
-- [ ] 4.4 The verification step logs multiple asset URLs, each `200`
-- [ ] 4.5 Negative test: a broken build fails at publish and never reaches deploy
-- [ ] 4.6 The revert restores a green run before the phase closes
+- [x] 4.1 `gh workflow view deploy.yml` returns the workflow — GitHub parsed and registered it
+- [x] 4.2 A push to `main` produces a run with conclusion `success`
+- [x] 4.3 The downloaded artifact passes all four assertions locally
+- [x] 4.4 The verification step logs multiple asset URLs, each `200`
+- [x] 4.5 Negative test: a broken build fails at publish and never reaches deploy
+- [x] 4.6 The revert restores a green run before the phase closes
 
 #### Manual
 
-- [ ] 4.7 The deploy step completes rather than hanging
-- [ ] 4.8 The live site serves the triggering commit
-- [ ] 4.9 The artifact is listed with the expected name and plausible size
-- [ ] 4.10 No secret value appears in the run log
+- [x] 4.7 The deploy step completes rather than hanging
+- [ ] 4.8 The live site serves the triggering commit — DEFERRED to 5.8 (no observable signal until the build marker lands)
+- [x] 4.9 The artifact is listed with the expected name and plausible size
+- [x] 4.10 No secret value appears in the run log
 
 ### Phase 5: Prove the artifact restores, and correct the record
 
@@ -1162,5 +1214,5 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 - [ ] 5.8 The build marker is visible on `/` and matches the triggering commit's short SHA
 - [ ] 5.9 The cold-restore rehearsal used a real prior artifact; production was not mutated
 - [ ] 5.10 `AGENTS.md` reads coherently start to finish with no lost reasoning
-- [ ] 5.11 The new deployment record states which auth path was taken and why
+- [ ] 5.11 The new deployment record states which auth path was taken and why, records the OIDC subject collision, and explains why two federated credentials exist
 - [ ] 5.12 The emergency manual restore is reconstructable from the docs alone
