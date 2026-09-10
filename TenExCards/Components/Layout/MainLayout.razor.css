@@ -96,3 +96,12 @@ main {
         right: 0.75rem;
         top: 0.5rem;
     }
+
+/* Deliberately quiet: the marker is an operational readout, not part of the product surface.
+   It must stay present and greppable on / -- criterion 5.8 checks the live page for it. */
+.build-marker {
+    padding-block: 0.75rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}

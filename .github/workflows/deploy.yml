@@ -71,8 +71,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # `SourceRevisionId` is appended to AssemblyInformationalVersion by the SDK, which is
+      # where the footer build marker reads it from. Without it the deployed page cannot say
+      # which commit it is, and two deploys of identical source are indistinguishable.
       - name: Publish
-        run: dotnet publish TenExCards/TenExCards.csproj -c Release
+        run: >
+          dotnet publish TenExCards/TenExCards.csproj -c Release
+          -p:SourceRevisionId=${{ github.sha }}
 
       # `python3` rather than `python`: guaranteed present on the Linux runner image. Same
       # script, same defaults as a local `python scripts/pack.py` on Windows.
