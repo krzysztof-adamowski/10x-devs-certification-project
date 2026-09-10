@@ -1068,20 +1068,20 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 
 #### Automated
 
-- [x] 2.1 `dotnet publish -c Release` succeeds
-- [x] 2.2 `python scripts/pack.py` exits `0` with all four assertions passing
-- [x] 2.3 Reading the zip back confirms `TenExCards.dll` at the archive root
-- [x] 2.4 Negative test: a `publish/`-nested tree exits non-zero naming assertions 1 and 2
-- [x] 2.5 Negative test: an emptied `wwwroot/` exits non-zero naming assertion 4
-- [x] 2.6 `python scripts/verify_deploy.py` against the live site exits `0` listing multiple assets
-- [x] 2.7 Negative test: verification against a 404 host exits non-zero
-- [x] 2.8 `scripts/` committed under a `(p2)` message
+- [x] 2.1 `dotnet publish -c Release` succeeds — c0102d9
+- [x] 2.2 `python scripts/pack.py` exits `0` with all four assertions passing — c0102d9
+- [x] 2.3 Reading the zip back confirms `TenExCards.dll` at the archive root — c0102d9
+- [x] 2.4 Negative test: a `publish/`-nested tree exits non-zero naming assertions 1 and 2 — c0102d9
+- [x] 2.5 Negative test: an emptied `wwwroot/` exits non-zero naming assertion 4 — c0102d9
+- [x] 2.6 `python scripts/verify_deploy.py` against the live site exits `0` listing multiple assets — c0102d9
+- [x] 2.7 Negative test: verification against a 404 host exits non-zero — c0102d9
+- [x] 2.8 `scripts/` committed under a `(p2)` message — c0102d9
 
 #### Manual
 
-- [ ] 2.9 `pack.py` failure output names what to fix
-- [ ] 2.10 Asset list matches the browser network tab for `/`
-- [ ] 2.11 Both scripts run on Windows without `zip`, WSL, or PowerShell 7
+- [x] 2.9 `pack.py` failure output names what to fix — c0102d9
+- [x] 2.10 Asset list matches the browser network tab for `/` — c0102d9
+- [x] 2.11 Both scripts run on Windows without `zip`, WSL, or PowerShell 7 — c0102d9
 
 ### Phase 3: Azure OIDC identity for CI
 

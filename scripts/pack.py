@@ -61,8 +61,9 @@ def assert_shape(out_path):
     Compress-Archive is banned.
 
     Every assertion is evaluated -- this deliberately does not stop at the first
-    failure. A `publish/`-nested tree violates assertions 1 and 2 at once, and a
-    fail-fast script would name only assertion 1 and hide the more diagnostic one.
+    failure. A `publish/`-nested tree violates assertions 1, 2 and 4 at once (its
+    static assets land at `publish/wwwroot/...`, not `wwwroot/...`), and a fail-fast
+    script would name only assertion 1 and hide the two more diagnostic ones.
 
     Returns a list of failure descriptions; empty means the archive is good.
     """
@@ -128,6 +129,14 @@ def assert_shape(out_path):
     return failures
 
 
+def _discard(path):
+    """Remove a staging archive, tolerating its absence."""
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
 def report(number, description, ok):
     print("  [%s] assertion %d: %s" % ("PASS" if ok else "FAIL", number, description))
 
@@ -157,15 +166,25 @@ def main(argv=None):
         )
         return 2
 
+    # Build to a staging path and promote only on success. Writing --out first
+    # and checking afterwards fails OPEN: a rejected archive would sit at exactly
+    # the path `az webapp deploy --src-path` reads, and the truncating open would
+    # already have destroyed the last good archive. Promotion is what makes "never
+    # upload an archive that has not passed all four assertions" a guarantee
+    # rather than a request.
+    staging = args.out + ".tmp"
+
     print("packing %s -> %s" % (args.publish_dir, args.out))
-    written = build_archive(args.publish_dir, args.out)
+    written = build_archive(args.publish_dir, staging)
     if written == 0:
         print("error: publish directory is empty: %s" % args.publish_dir, file=sys.stderr)
+        _discard(staging)
         return 2
-    print("wrote %d file(s); verifying the archive that was actually written" % written)
+    print("wrote %d file(s) to %s; verifying before it becomes the deploy artifact"
+          % (written, staging))
     print("")
 
-    failures = assert_shape(args.out)
+    failures = assert_shape(staging)
 
     print("")
     if failures:
@@ -176,13 +195,17 @@ def main(argv=None):
         for failure in failures:
             print("  - %s" % failure, file=sys.stderr)
         print(
-            "\nThe archive at %s must not be deployed. Each of these failures deploys\n"
-            "successfully and then breaks at runtime." % args.out,
+            "\nNOTHING was written to %s -- it still holds whatever it held\n"
+            "before. The rejected archive is at %s if you want to inspect it. Each\n"
+            "of these failures deploys successfully and then breaks at runtime."
+            % (args.out, staging),
             file=sys.stderr,
         )
         return 1
 
-    print("ARCHIVE OK -- all four assertions passed; safe to deploy.")
+    os.replace(staging, args.out)
+    print("ARCHIVE OK -- all four assertions passed; promoted to %s; safe to deploy."
+          % args.out)
     return 0
 
 

@@ -1,7 +1,7 @@
 ---
 change_id: deploy-pipeline
 title: Merges deploy themselves
-status: implementing
+status: impl_reviewed
 created: 2026-09-08
 updated: 2026-09-10
 archived_at: null
