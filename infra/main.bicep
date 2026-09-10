@@ -40,6 +40,55 @@ param skuName string = 'B1'
 @description('Verify with `az webapp list-runtimes --os linux | grep -i dotnet` before changing.')
 param linuxFxVersion string = 'DOTNETCORE|10.0'
 
+// ---------------------------------------------------------------------------
+// Persistence (F-02, change persistence-spine). Two databases on ONE logical
+// server: the app's, and a separate one for local development. That split is
+// not tidiness — Program.cs calls Database.Migrate() on the boot path, so a
+// local `dotnet run` applies whatever migrations sit in the working tree to
+// whatever database the connection string names, forward-only, with no down
+// migration. Pointing local development at the app's database would also put
+// the production Data Protection key ring on a development machine, since the
+// EF key repository stores every key row in one table with no per-application
+// partition. Same server keeps the SQL dialect identical, so a migration that
+// applies to one applies to the other.
+//
+// The boundary between them is NOT the name. It is the contained database user
+// created by hand in the development database (T-SQL, data-plane, declared in
+// no template — see context/deployment/deploy-plan.md). Two databases that
+// differ only by Initial Catalog, both reached as the server admin, are one
+// edited token apart.
+// ---------------------------------------------------------------------------
+
+@description('Globally unique; becomes <name>.database.windows.net.')
+param sqlServerName string = 'sql-tenexcards-plc'
+
+@description('SQL administrator login. The password is a @secure() parameter with no default.')
+param sqlAdminLogin string = 'tenexadmin'
+
+// No default, and never written to a .parameters.json file inside this repo.
+// Every future deployment of this template must supply it again; the value is
+// retrievable from the vault as the `sql-admin-password` secret. This is the
+// one place where deploying this template needs a secret as input, and it is
+// why the password is stored in the vault on its own in addition to being
+// embedded in the connection string.
+@secure()
+@description('SQL administrator password. Supply at prompt or from a parameters file kept OUTSIDE this repository.')
+param sqlAdminPassword string
+
+@description('Database the deployed app reads and writes. S0 — provisioned, not auto-pausing.')
+param appDbName string = 'sqldb-tenexcards'
+
+@description('Database local development runs against. Never on a user path, so its throughput does not matter.')
+param devDbName string = 'sqldb-tenexcards-dev'
+
+@description('Globally unique; becomes https://<name>.vault.azure.net/.')
+param vaultName string = 'kv-tenexcards-plc'
+
+// Key Vault Secrets User — read secret *values*, nothing else. Built-in role
+// GUIDs are stable across clouds and tenants, which is why this is a literal
+// rather than a lookup.
+var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
+
 // WARNING: deploying this template CLEARS `properties.freeOfferExpirationTime`
 // on the plan. Verified 2026-08-31 by snapshot/deploy/diff: the value went from
 // 2026-09-30T18:15:33 to null on a deployment that reported "Succeeded". The
@@ -72,11 +121,31 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
 //
 // They look identical to the plan's freeOfferExpirationTime line above, which
 // was real and destructive. There is no way to tell them apart by reading the
-// output — only by snapshotting, deploying, and diffing.
+// output — only by snapshotting, deploying, and diffing. Confirmed a third time
+// on 2026-09-10: both lines appeared again, both changed nothing.
+//
+// 2026-09-10 also found this resource type unreliable in the OTHER direction.
+// The deployment that added `identity` below was predicted by what-if as a
+// Modify carrying ONLY those two phantom lines — it never mentioned identity at
+// all, yet the principal was created and is what resolves the Key Vault
+// reference. So what-if on Microsoft.Web/sites both invents changes that do not
+// happen AND omits changes that do. A clean what-if here is not evidence that
+// nothing will change; only the post-deploy diff is.
 resource site 'Microsoft.Web/sites@2023-12-01' = {
   name: appName
   location: location
   kind: 'app,linux'
+
+  // System-assigned, so its lifetime is the site's and there is no separate
+  // identity resource to leak on teardown. This principal is what resolves the
+  // Key Vault reference in ConnectionStrings__DefaultConnection — App Service
+  // resolves references at app START and caches the outcome, so a reference set
+  // before the role assignment below has propagated reports unresolved and does
+  // NOT re-heal on its own. Restart the app after granting.
+  identity: {
+    type: 'SystemAssigned'
+  }
+
   properties: {
     serverFarmId: plan.id
 
@@ -195,5 +264,192 @@ resource logs 'Microsoft.Web/sites/config@2023-12-01' = {
   }
 }
 
+// SQL logical server. Public networking stays Enabled and there is no private
+// endpoint — see the firewall rule below for what that actually costs.
+//
+// `version: '12.0'` is not a choice; it is the only value Azure SQL Database
+// accepts and it does not correspond to a SQL Server release.
+// what-if characterisation, 2026-09-10, taken against an EMPTY database (no
+// tables, no migration history). Verified by running what-if BEFORE the first
+// deployment and again AFTER it — the second run is the one that matters,
+// because phantoms only appear once the resource exists to be diffed against.
+//
+// Permanent phantom on this resource: `NoEffect properties.version : None ->
+// '12.0'`. The GET does not return `version`, so what-if diffs the declared
+// value against nothing. `NoEffect` is what-if telling you outright that it
+// changes nothing — believe that label; it is not the same as an unlabelled
+// `+ Create` line.
+//
+// Also expect `Ignore Microsoft.Sql/servers/databases/master`. `master` is the
+// system database, always present and never declared here. It is not drift.
+//
+// No `- Delete` was predicted on this resource type in either run.
+resource sqlServer 'Microsoft.Sql/servers@2025-01-01' = {
+  name: sqlServerName
+  location: location
+  properties: {
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    version: '12.0'
+    minimalTlsVersion: '1.2'
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+// "Allow Azure services" is a 0.0.0.0-0.0.0.0 entry, and that pair is a magic
+// value rather than an address range: it admits traffic originating anywhere
+// in Azure — any subscription, any tenant — not just this one. For
+// Azure-originating traffic there is therefore NO network boundary here; the
+// boundary is the SQL admin password, which is why that password lives in the
+// vault and never on a development machine.
+//
+// Pinning to the app's possibleOutboundIpAddresses was considered and
+// declined: App Service outbound IPs are shared across a scale unit, so it
+// narrows "all of Azure" only to "every app on this scale unit", while adding
+// a rule set that silently breaks the app when the IP set rotates on a tier or
+// scale operation. Real isolation needs a private endpoint. Out of scope here.
+//
+// The development machine's own rule is deliberately NOT declared: it is a
+// property of where you happen to be sitting, not of the infrastructure. It is
+// set with `az sql server firewall-rule create` and must be re-added when the
+// home IP changes. See context/deployment/deploy-plan.md.
+resource allowAzureServices 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
+  parent: sqlServer
+  name: 'AllowAllWindowsAzureIps'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
+// S0 (10 DTU, provisioned) is chosen over the auto-pausing serverless free
+// offer on purpose: the first query after a pause can exceed the entire 2s
+// acknowledgement budget the PRD sets. See infrastructure.md "## Budget
+// Posture" — the rule is the cheapest option that removes a risk, not the
+// cheapest option.
+// what-if characterisation, 2026-09-10, against an EMPTY database.
+//
+// PERMANENT PHANTOM, and the most alarming-looking line this template produces:
+//   Modify sku.name : 'Standard' -> 'S0'
+// The databases GET returns the *tier* in `sku.name` ('Standard'), while this
+// template correctly declares the *service objective* ('S0'). They are
+// different fields with the same key, so every redeploy predicts a SKU change
+// that never happens. Verified 2026-09-10 by deploy-then-diff: the database
+// stayed S0/Standard/Online throughout.
+//
+// The dev database below does NOT show this line, because at Basic the tier and
+// the service objective are the same string — which is a good reminder that the
+// absence of a phantom proves nothing about its cause.
+//
+// Do not "fix" this by declaring sku.name: 'Standard'. That would deploy a
+// tier-default service objective and silently change what you are paying for.
+resource appDb 'Microsoft.Sql/servers/databases@2025-01-01' = {
+  parent: sqlServer
+  name: appDbName
+  location: location
+  sku: {
+    name: 'S0'
+    tier: 'Standard'
+  }
+  properties: {
+    collation: 'SQL_Latin1_General_CP1_CI_AS'
+    zoneRedundant: false
+  }
+}
+
+// Basic is sufficient: this database is never on a user path, so its
+// throughput does not matter. Same server as the app's database, so the SQL
+// dialect and the EF Core provider are identical and a migration verified here
+// applies unchanged there.
+resource devDb 'Microsoft.Sql/servers/databases@2025-01-01' = {
+  parent: sqlServer
+  name: devDbName
+  location: location
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
+  properties: {
+    collation: 'SQL_Latin1_General_CP1_CI_AS'
+    zoneRedundant: false
+  }
+}
+
+// The vault is infrastructure and belongs in this template. The secret VALUES
+// are data-plane and never do — same principle as the appSettings omission
+// above, and for the same reason: making the template authoritative over a
+// value means a routine, successful-looking deployment deletes it.
+//
+// enableRbacAuthorization is declared explicitly rather than left to default.
+// The default has changed over time, and under RBAC creating a vault does NOT
+// grant its creator data-plane access — you must assign yourself Key Vault
+// Secrets Officer separately, and then wait, because role assignments are
+// eventually consistent and `az keyvault secret set` returns Forbidden until
+// they propagate.
+//
+// enablePurgeProtection is deliberately left UNSET. With it on, the vault
+// cannot be removed for the full retention window, which would break the
+// single-command teardown recorded in deploy-plan.md. Soft-delete still
+// reserves the NAME for 7 days after deletion: recreating this vault under the
+// same name needs `az keyvault purge` first.
+// API version: NOT the newest the provider reports. `az provider show` lists
+// 2026-05-15 as the newest stable, and it deploys — but the Bicep CLI pinned
+// here has no types for it and emits BCP081, meaning the template compiles
+// WITHOUT any property validation. A typo'd property name would then compile
+// clean and be silently dropped by ARM. 2024-11-01 is the newest version this
+// Bicep build can type-check. Re-verify both facts before bumping it.
+//
+// what-if characterisation, 2026-09-10: this resource is CLEAN. A no-op
+// redeploy reports `NoChange` with an empty delta — no phantoms at all, which
+// makes any future line on this vault worth reading carefully rather than
+// dismissing.
+resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
+  name: vaultName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    softDeleteRetentionInDays: 7
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+// what-if characterisation, 2026-09-10. PERMANENT PHANTOM:
+//   Modify properties.principalId :
+//     'a3558bdf-...' -> "[reference('.../sites/tenexcards-ka', '2023-12-01', 'full').identity.principalId]"
+// what-if cannot evaluate a `reference()` expression, so it diffs the resolved
+// GUID that is actually assigned against the literal, unevaluated ARM
+// expression — and reports it as a Modify. It reads as though the deployment
+// is about to overwrite a principal id with a string. It is not. Verified
+// 2026-09-10 by deploy-then-diff: the assignment was unchanged.
+//
+// `NoEffect properties.principalType` accompanies it and is self-labelled.
+//
+// The resource NAME must be a deterministic GUID derived from scope, principal
+// and role definition. A non-deterministic name (newGuid(), a literal typed
+// once) makes every redeployment try to CREATE a duplicate assignment, which
+// fails — the template stops being idempotent. Confirmed stable: both what-if
+// runs and the deployment produced the same name, 4d35348c-adff-5bf6-82aa-58a4ea39db81.
+//
+// principalType: 'ServicePrincipal' is not cosmetic either: without it ARM
+// tries to look the principal up in Entra ID and fails on a just-created
+// managed identity that has not replicated yet.
+resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: vault
+  name: guid(vault.id, site.id, keyVaultSecretsUserRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+    principalId: site.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output appUrl string = 'https://${site.properties.defaultHostName}'
 output planIsLinux bool = plan.properties.reserved
+output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
+output vaultUri string = vault.properties.vaultUri
+output sitePrincipalId string = site.identity.principalId
