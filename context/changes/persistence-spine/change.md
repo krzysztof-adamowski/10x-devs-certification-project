@@ -38,6 +38,36 @@ The vault is the durable, outside-the-repo store already provisioned.
 - Review finding **F3** is a consequence: the site's identity holds `Key Vault Secrets User` at
   *vault* scope, so the app can read the dev credentials too.
 
+### Phase 2 finding: the Data Protection key ring persists UNENCRYPTED
+
+`PersistKeysToDbContext<AppDbContext>()` stores the key ring in `DataProtectionKeys.Xml` as
+**plaintext XML** (verified 2026-09-10: one row, `xml_len` 884, readable as-is). ASP.NET Core says
+so at startup, but only on the boot that mints a key — never again:
+
+```
+warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[35]
+      No XML encryptor configured. Key {effa75a4-...} may be persisted to storage in unencrypted form.
+```
+
+This warning is easy to miss and easy to confuse with the *keys-not-persisted* warning that
+criterion 2.11 asks about. They are different: the persistence warning is gone (that was the goal),
+and this encryption-at-rest warning took its place.
+
+**Why it matters more in `S-01` than here.** Today the key ring only signs antiforgery tokens, so
+database read access buys token forgery. Once `S-01` adds Identity, the *same* ring signs auth
+cookies — the same access becomes session forgery for any account. Who holds that access:
+the app's managed identity, the SQL admin, and (per review finding **F3**) anything holding the dev
+credentials, since the role assignment is vault-scoped.
+
+**Not fixed in F-02** — the mitigation is `ProtectKeysWithAzureKeyVault(...)` (or a certificate),
+which means a key-vault *key* rather than a secret, another role assignment, and its own failure
+mode on the boot path. That is real work and belongs with the change that makes the exposure
+material.
+
+**`S-01` obligation.** `AGENTS.md` will shortly say key persistence is handled and that `S-01`
+verifies rather than implements it. That remains true for *persistence*. Encryption at rest is a
+separate, open question that `S-01` owns — do not read the persistence bullet as covering it.
+
 ### Phase 1 findings to carry into Phase 4
 
 - **The plan's Key Vault reference check command does not work.** Criterion 1.6 prescribes

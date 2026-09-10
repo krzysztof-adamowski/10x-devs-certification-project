@@ -1,0 +1,73 @@
+@page "/db-check"
+@using Microsoft.EntityFrameworkCore
+@using TenExCards.Data
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+@* Proof that the persistence spine READS AND WRITES from the deployed app. A connectivity check
+   would prove neither. This is the persistence counterpart to CircuitCheck.razor and carries the
+   same scheduled death: S-01 deletes this page, its nav entry, the SpineProbe entity and its table.
+
+   STATICALLY RENDERED ON PURPOSE — note the absence of an @rendermode line. That is not an
+   omission. A Blazor SSR form emits an antiforgery token automatically; an interactive-server
+   button would dispatch over the circuit, post no form and mint no token — leaving Phase 3's
+   restart-survival check (the only check that regresses if Data Protection key persistence breaks)
+   with nothing to run against. Circuit liveness is already proven by /circuit-check, which lives
+   until S-01 deletes both. Adding @rendermode here would silently remove the evidence. *@
+
+<PageTitle>Database check</PageTitle>
+
+<h1>Database check</h1>
+
+<p>
+    Submitting the form writes one row to the database and re-renders this page from a fresh read.
+    If the count increases and survives a restart, the spine reads and writes durably.
+</p>
+
+<p role="status">Probe rows: <strong>@rowCount</strong></p>
+
+<p role="status">
+    Most recent write (UTC):
+    <strong>@(mostRecentUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "none yet")</strong>
+</p>
+
+@* Do NOT add <AntiforgeryToken /> here. A statically-rendered EditForm with a FormName already
+   emits the hidden __RequestVerificationToken field itself. Adding the component too renders the
+   field TWICE, the POST submits two values for one name, and validation fails with "A valid
+   antiforgery token was not provided" — which reads as a missing token rather than a duplicated
+   one. Verified 2026-09-10 by inspecting the rendered markup. *@
+<EditForm Model="this" method="post" OnValidSubmit="WriteProbeAsync" FormName="write-probe">
+    <button class="btn btn-primary" type="submit">Write a probe row</button>
+</EditForm>
+
+@code {
+    private int rowCount;
+    private DateTime? mostRecentUtc;
+
+    // A context per operation from the factory, rather than one held open across the request.
+    // Blazor Server memory is per-circuit and this app deliberately keeps a whole passage plus its
+    // candidates there later; a context left open would add to that ceiling for no benefit.
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task WriteProbeAsync()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            db.SpineProbes.Add(new SpineProbe { WrittenAtUtc = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
+
+        // Re-read rather than incrementing in memory: the point is to prove the row came back out
+        // of the database, not that a counter went up.
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        rowCount = await db.SpineProbes.CountAsync();
+        mostRecentUtc = await db.SpineProbes
+            .OrderByDescending(p => p.WrittenAtUtc)
+            .Select(p => (DateTime?)p.WrittenAtUtc)
+            .FirstOrDefaultAsync();
+    }
+}

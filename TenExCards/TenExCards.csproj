@@ -5,6 +5,21 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+
+    <!-- Local development reads ConnectionStrings:DefaultConnection from the user-secrets store
+         keyed by this id, which lives outside the repository. Neither appsettings.json nor
+         appsettings.Development.json ever carries a connection string. The deployed app gets the
+         same key from an App Service setting resolving a Key Vault reference. -->
+    <UserSecretsId>tenexcards-9f3c1a7e-4b02-4d18-8c55-persistence</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+  </ItemGroup>
 
 </Project>
