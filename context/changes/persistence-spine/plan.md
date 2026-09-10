@@ -925,24 +925,24 @@ painful one.
 
 #### Automated
 
-- [x] 1.1 Both providers report Registered
-- [x] 1.2 az sql db list-editions lists the S0 service objective in polandcentral
-- [x] 1.3 App database online at S0 and the development database online
-- [x] 1.4 The site has a system-assigned principal id
-- [x] 1.5 Both vault secrets exist
-- [x] 1.6 The Key Vault reference resolves
-- [x] 1.7 az deployment group create reported Succeeded in Incremental mode
-- [x] 1.8 Post-deploy diff shows no unintended property change
-- [x] 1.9 git grep finds no password or connection string in tracked files
-- [x] 1.10 PSReadLine history contains no secret and no scratch secret file remains
-- [x] 1.11 infra/main.bicep contains the dated what-if characterisation for all three new resource types
+- [x] 1.1 Both providers report Registered — 2df6bf7
+- [x] 1.2 az sql db list-editions lists the S0 service objective in polandcentral — 2df6bf7
+- [x] 1.3 App database online at S0 and the development database online — 2df6bf7
+- [x] 1.4 The site has a system-assigned principal id — 2df6bf7
+- [x] 1.5 Both vault secrets exist — 2df6bf7
+- [x] 1.6 The Key Vault reference resolves — 2df6bf7
+- [x] 1.7 az deployment group create reported Succeeded in Incremental mode — 2df6bf7
+- [x] 1.8 Post-deploy diff shows no unintended property change — 2df6bf7
+- [x] 1.9 git grep finds no password or connection string in tracked files — 2df6bf7
+- [x] 1.10 PSReadLine history contains no secret and no scratch secret file remains — 2df6bf7
+- [x] 1.11 infra/main.bicep contains the dated what-if characterisation for all three new resource types — 2df6bf7
 
 #### Manual
 
-- [x] 1.12 A SQL client connects using the vault connection string and runs SELECT 1
-- [x] 1.13 Every what-if Delete/Modify line was reconciled against the post-deploy diff and written down
-- [x] 1.14 Vault permission model is RBAC and purge protection is off
-- [x] 1.15 The development-database user connects to the dev database and is refused by the app database
+- [x] 1.12 A SQL client connects using the vault connection string and runs SELECT 1 — 2df6bf7
+- [x] 1.13 Every what-if Delete/Modify line was reconciled against the post-deploy diff and written down — 2df6bf7
+- [x] 1.14 Vault permission model is RBAC and purge protection is off — 2df6bf7
+- [x] 1.15 The development-database user connects to the dev database and is refused by the app database — 2df6bf7
 
 ### Phase 2: EF Core spine, probe entity, and Data Protection keys
 

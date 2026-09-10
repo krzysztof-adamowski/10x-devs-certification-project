@@ -71,6 +71,20 @@ param sqlAdminLogin string = 'tenexadmin'
 // one place where deploying this template needs a secret as input, and it is
 // why the password is stored in the vault on its own in addition to being
 // embedded in the connection string.
+//
+// WARNING: this password is RE-ASSERTED on every deployment. Supplying a value
+// that differs from the vault's `sql-admin-password` does not fail — the
+// deployment reports "Succeeded" and silently ROTATES the server admin
+// password out from under the app. The running app keeps working, because App
+// Service resolved and cached its connection string at start; it breaks at the
+// next restart with `Login failed for user 'tenexadmin'`, by which point the
+// deployment that caused it is hours or days back. This is the same shape as
+// the appSettings hazard documented further down: a successful-looking
+// deployment invalidating a value held out of band.
+//
+// Always take the value FROM the vault. On a deliberate rotation, update
+// `sql-admin-password` AND `sql-connection-string` in the same operation, then
+// restart the app.
 @secure()
 @description('SQL administrator password. Supply at prompt or from a parameters file kept OUTSIDE this repository.')
 param sqlAdminPassword string
@@ -229,8 +243,18 @@ resource siteWebConfig 'Microsoft.Web/sites/config@2023-12-01' = {
 // things — combined with ASPNETCORE_HTTPS_PORT it produces a 307 to the
 // request's own URL, an infinite redirect. Neither setting belongs here.
 //
-// When Identity lands, move secrets to Key Vault references and add them
-// above — that is the change this block is waiting for.
+// This block is no longer "waiting" for anything. F-02 landed the database
+// connection string as a Key Vault reference on 2026-09-10, and it lives
+// OUTSIDE this template by design:
+//
+//   az webapp config appsettings set -g rg-tenexcards-plc -n tenexcards-ka \
+//     --settings "ConnectionStrings__DefaultConnection=@Microsoft.KeyVault(SecretUri=https://kv-tenexcards-plc.vault.azure.net/secrets/sql-connection-string/)"
+//
+// A Key Vault *reference* is a pointer, not a secret — but declaring it here
+// would still make Bicep authoritative over appSettings and delete it on the
+// next routine deploy, exactly as the paragraph above describes. The LLM API
+// key arrives the same way in S-02. Adding either one here is the mistake,
+// not the milestone.
 
 // Ordered after the `web` config on purpose: a config/web write can reset
 // httpLoggingEnabled, and this resource is what turns it back on.
@@ -284,6 +308,12 @@ resource logs 'Microsoft.Web/sites/config@2023-12-01' = {
 // system database, always present and never declared here. It is not drift.
 //
 // No `- Delete` was predicted on this resource type in either run.
+//
+// API version confirmed 2026-09-10 against `az provider show --namespace
+// Microsoft.Sql --query "resourceTypes[?resourceType=='servers'].apiVersions"`,
+// not copied from memory: 2025-01-01 is the newest STABLE (everything above it
+// is -preview). `servers/firewallRules` is a child type the provider does not
+// enumerate separately, so it shares this family deliberately.
 resource sqlServer 'Microsoft.Sql/servers@2025-01-01' = {
   name: sqlServerName
   location: location
@@ -293,6 +323,20 @@ resource sqlServer 'Microsoft.Sql/servers@2025-01-01' = {
     version: '12.0'
     minimalTlsVersion: '1.2'
     publicNetworkAccess: 'Enabled'
+
+    // Deliberately NOT declared here, each for a reason:
+    //   administrators /        - Entra-ID-only ("passwordless") database auth
+    //   azureADOnlyAuthentication  was considered and DECLINED for F-02, in
+    //                              favour of the Key Vault reference that
+    //                              infrastructure.md already prescribes.
+    //                              Recorded here rather than only in the change
+    //                              plan, so it is not re-litigated as an
+    //                              oversight once that plan is archived.
+    //   privateEndpointConnections - out of scope; see the firewall rule below
+    //                              for what that costs. Real isolation needs
+    //                              one, and nothing here substitutes for it.
+    //   restrictOutboundNetworkAccess - not needed; nothing egresses from this
+    //                              server.
   }
 }
 
@@ -313,6 +357,12 @@ resource sqlServer 'Microsoft.Sql/servers@2025-01-01' = {
 // property of where you happen to be sitting, not of the infrastructure. It is
 // set with `az sql server firewall-rule create` and must be re-added when the
 // home IP changes. See context/deployment/deploy-plan.md.
+// what-if characterisation, 2026-09-10, against an EMPTY database: this
+// resource is CLEAN. `+ Create` on the first run, `NoChange` with an empty
+// delta on the no-op redeploy — no phantoms, no NoEffect lines. Note this
+// characterises only the ONE rule declared here; the dev-machine rule is
+// created out of band and never appears in what-if at all, which is the
+// expected consequence of it not being in the template rather than a defect.
 resource allowAzureServices 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
   parent: sqlServer
   name: 'AllowAllWindowsAzureIps'
@@ -402,7 +452,10 @@ resource devDb 'Microsoft.Sql/servers/databases@2025-01-01' = {
 // what-if characterisation, 2026-09-10: this resource is CLEAN. A no-op
 // redeploy reports `NoChange` with an empty delta — no phantoms at all, which
 // makes any future line on this vault worth reading carefully rather than
-// dismissing.
+// dismissing. Characterised against an EMPTY database and an EMPTY vault (the
+// four secrets were written after this run); secrets are data-plane and this
+// template declares none, so adding them should not change the output — but
+// that has not been re-observed.
 resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: vaultName
   location: location
@@ -414,7 +467,27 @@ resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
     }
     enableRbacAuthorization: true
     softDeleteRetentionInDays: 7
+
+    // Public, deliberately, and for the same reason the SQL server is: App
+    // Service outbound IPs are shared across a scale unit and rotate on tier
+    // or scale operations, so there is no useful IP allow-list to write. RBAC
+    // is the control here — the vault is reachable, not readable.
     publicNetworkAccess: 'Enabled'
+
+    // Deliberately NOT declared here, each for a reason:
+    //   networkAcls         - would be the place to restrict by IP/VNet. See
+    //                         publicNetworkAccess above for why there is
+    //                         nothing useful to put in it today.
+    //   accessPolicies      - meaningless under enableRbacAuthorization: true.
+    //                         Declaring both is the classic way to end up with
+    //                         a permission model that does not do what it says.
+    //   enablePurgeProtection - see the paragraph above; its ABSENCE is the
+    //                         decision, and setting it to false is not the same
+    //                         thing as leaving it unset.
+    //   secrets (child)     - the vault is infrastructure; secret VALUES are
+    //                         data-plane and are set with
+    //                         `az keyvault secret set --file`. Same principle
+    //                         as the appSettings omission further up.
   }
 }
 
@@ -435,9 +508,41 @@ resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
 // fails — the template stops being idempotent. Confirmed stable: both what-if
 // runs and the deployment produced the same name, 4d35348c-adff-5bf6-82aa-58a4ea39db81.
 //
+// Characterised against an EMPTY database, like every other block in this
+// change — worth stating because a populated database is the condition under
+// which Microsoft.Sql/* what-if output has not been observed here.
+//
+// API version confirmed 2026-09-10 against `az provider show --namespace
+// Microsoft.Authorization`. 2022-04-01 looks exactly like a value copied from
+// memory, and it is worth recording that it is not: it really is the newest
+// STABLE version (2025-10-01-preview and 2026-07-01-preview sit above it).
+//
 // principalType: 'ServicePrincipal' is not cosmetic either: without it ARM
 // tries to look the principal up in Entra ID and fails on a just-created
 // managed identity that has not replicated yet.
+// SCOPE IS THE VAULT, NOT A SINGLE SECRET — a deliberate, examined tradeoff,
+// reviewed 2026-09-10 (impl-review-phase-1, F3).
+//
+// This grants the site's identity read access to ALL four secrets in the vault,
+// while it legitimately needs exactly one (sql-connection-string). The two it
+// does not need are sql-dev-user-password and sql-dev-connection-string — the
+// contained dev user that the comment at the top of this file calls the actual
+// boundary between the dev and app databases. So the app can read the
+// credential that separates it from the dev database.
+//
+// Why it is accepted anyway:
+//   - The connection string the app legitimately reads already embeds the SQL
+//     admin password, which outranks the dev user entirely. Narrowing scope
+//     would not change what a compromised app process can reach in the app
+//     database; it would only protect the dev database.
+//   - Single operator, MVP, no CI principal yet.
+//
+// Why it was NOT fixed: secret-scoped RBAC needs `scope: <secret>`, and on the
+// `az group delete` -> redeploy rebuild that deploy-plan.md documents, the
+// template would assign a role at a secret that does not exist yet. Whether ARM
+// rejects that is UNVERIFIED — so narrowing the scope risks breaking the
+// single-command rebuild to protect a credential that ranks below one the app
+// already holds. Revisit when a CI principal or a second consumer appears.
 resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: vault
   name: guid(vault.id, site.id, keyVaultSecretsUserRoleId)

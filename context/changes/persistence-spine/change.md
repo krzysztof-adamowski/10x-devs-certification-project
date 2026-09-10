@@ -1,7 +1,7 @@
 ---
 change_id: persistence-spine
 title: Persistence spine
-status: implementing
+status: impl_reviewed
 created: 2026-09-08
 updated: 2026-09-10
 archived_at: null
@@ -10,6 +10,33 @@ archived_at: null
 ## Notes
 
 <!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->
+
+### Phase 1 deviation: four vault secrets, not two
+
+Plan change 6 specifies two secrets. **Four exist.** Approved during implementation on 2026-09-10.
+
+| Secret | Purpose | Recoverable elsewhere? |
+| --- | --- | --- |
+| `sql-admin-password` | SQL server admin; the `@secure()` template parameter for every future deployment | no |
+| `sql-connection-string` | What the deployed app consumes via the Key Vault reference | derivable from the admin password |
+| `sql-dev-user-password` | The contained `tenexdev` database user created in change 8 | **no — only copy** |
+| `sql-dev-connection-string` | What local development puts in user-secrets (Phase 2 change 4) | derivable from the above |
+
+**Why the dev pair exists.** Change 8 mints the contained dev user in Phase 1; Phase 2 change 4
+consumes it. The plan gave that credential no home in between, while criterion 1.10 requires no
+scratch secret file to remain on disk. Deleting the file would have destroyed the only copy — a
+contained user has no server-level login, so it cannot be recovered, only dropped and recreated.
+The vault is the durable, outside-the-repo store already provisioned.
+
+**Phase 4 obligations this creates:**
+
+- `deploy-plan.md` and `AGENTS.md` must name **all four** secrets, not the plan's two.
+- The teardown note must record that `sql-dev-user-password` is the only copy of a credential
+  belonging to a data-plane object (the contained user) that no template recreates.
+- Criterion 1.5 reads "Both vault secrets exist" and is under-specified against reality. Its phase
+  block is read-only, so this note is the correction.
+- Review finding **F3** is a consequence: the site's identity holds `Key Vault Secrets User` at
+  *vault* scope, so the app can read the dev credentials too.
 
 ### Phase 1 findings to carry into Phase 4
 

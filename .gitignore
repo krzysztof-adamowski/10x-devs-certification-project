@@ -1,1 +1,8 @@
 Personal
+
+# Bicep parameter files never enter this repository. The SQL admin password is
+# a @secure() parameter with no default, so a deployment needs the value from
+# somewhere - keep that file outside the repo (or pass the value at the prompt).
+# infra/main.bicep states this invariant; these rules are what enforce it.
+infra/*.parameters.json
+infra/*.parameters.local.json
