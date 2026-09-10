@@ -1,0 +1,123 @@
+# Deploy 10xCards to App Service on every push to `main`.
+#
+# This workflow is a thin caller. Every assertion it makes lives in a committed script
+# a human can run identically on the development machine -- `scripts/pack.py` builds and
+# shape-checks the archive, `scripts/verify_deploy.py` proves the deployed site actually
+# serves. See `scripts/README.md`; the deployment rules they enforce are in
+# `TenExCards/AGENTS.md`.
+#
+# Three settings below are deliberate and should not be "fixed":
+#
+#   `--track-status false` on the deploy step. `context/deployment/deploy-plan.md` records
+#   the tracking flag hanging on "Pending" while the site was already live. A hang in CI
+#   burns the job timeout and reports nothing. The verification step that follows is a
+#   stronger signal than the flag it replaces -- it fetches the page and every same-origin
+#   asset -- so the flag is off and `timeout-minutes` is the backstop.
+#
+#   `permissions` is exactly `id-token: write` (required to mint the OIDC token
+#   `azure/login` exchanges) plus `contents: read` (required to check out). Nothing else is
+#   granted. In particular `actions: read` is absent because this workflow never downloads a
+#   prior run's artifact -- see the scope note below. Narrowing this set is the point of
+#   using OIDC at all: there is no stored Azure credential to leak.
+#
+#   `dotnet publish` passes no `-o`. The stock output path is what `pack.py` defaults to,
+#   so CI and a local run pack the exact same directory. Adding `-o` silently decouples them.
+#
+# Deliberately OUT of scope for this workflow:
+#
+#   * Infrastructure. `infra/main.bicep` is never deployed from here and `what-if` is never
+#     run from here. `TenExCards/AGENTS.md` requires human judgment on every predicted
+#     deletion, because phantom and real deletions are indistinguishable in that output.
+#   * Application settings. This workflow never runs `az webapp config appsettings set` and
+#     never introduces an `appSettings` block. Secrets are data-plane and stay in Key Vault.
+#   * Redeploying a prior run's artifact. Archives are retained for 90 days and restoring one
+#     is a documented manual procedure, not a workflow path. Automating it would require a
+#     `run_id` input, `actions: read`, and a rollback drill that mutates production.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  # Bare dispatch -- no inputs. Re-runs a build from the current `main`; it cannot be used
+  # to redeploy an older artifact, which is the out-of-scope item above.
+  workflow_dispatch:
+
+# Two merges must not deploy over each other. Cancelling a deploy mid-flight is worse than
+# queueing behind it, so in-progress runs are never cancelled.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v4
+
+      - name: Identify the build
+        id: build
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish
+        run: dotnet publish TenExCards/TenExCards.csproj -c Release
+
+      # `python3` rather than `python`: guaranteed present on the Linux runner image. Same
+      # script, same defaults as a local `python scripts/pack.py` on Windows.
+      # pack.py builds to a staging path and promotes to --out only when all four shape
+      # assertions pass, so a rejected archive can never reach the deploy step below.
+      - name: Pack and verify archive shape
+        run: python3 scripts/pack.py
+
+      # Retention is the deliverable, not a convenience: every deployed archive stays
+      # recoverable for 90 days, and because only a passing pack.py ever produces one,
+      # anything in this store is known to be shape-valid.
+      - name: Retain the archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-${{ steps.build.outputs.short_sha }}
+          path: TenExCards/bin/publish.zip
+          retention-days: 90
+          if-no-files-found: error
+
+      # Workload identity federation: no stored secret. The federated credential is scoped
+      # by exact-match subject to this repository on refs/heads/main, so a run on any other
+      # ref cannot authenticate even with these three (non-confidential) identifiers.
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Never `az webapp up` -- deprecated, and it invents its own infrastructure.
+      - name: Deploy
+        timeout-minutes: 10
+        run: |
+          az webapp deploy \
+            -g rg-tenexcards-plc \
+            -n tenexcards-ka \
+            --src-path TenExCards/bin/publish.zip \
+            --type zip \
+            --track-status false \
+            --enriched-errors true
+
+      # The real signal. A successful deploy command is not evidence: a `publish/`-nested
+      # archive deploys successfully and then 503s, and backslash entry names serve a page
+      # whose every asset 404s. This fetches the root page and every same-origin asset it
+      # references, retrying through the post-deploy container restart before failing.
+      - name: Verify the deployed site
+        timeout-minutes: 10
+        run: python3 scripts/verify_deploy.py
