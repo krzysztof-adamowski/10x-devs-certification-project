@@ -1053,16 +1053,16 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 
 #### Automated
 
-- [x] 1.1 `git rev-parse --abbrev-ref HEAD` prints `main`
-- [x] 1.2 Upstream tracking resolves to `origin/main`
-- [x] 1.3 `gh repo view` reports `main` as the default branch
-- [x] 1.4 `origin/master` no longer exists
-- [x] 1.5 No markdown file describes an unsettled branch name
+- [x] 1.1 `git rev-parse --abbrev-ref HEAD` prints `main` — 4c8e589
+- [x] 1.2 Upstream tracking resolves to `origin/main` — 4c8e589
+- [x] 1.3 `gh repo view` reports `main` as the default branch — 4c8e589
+- [x] 1.4 `origin/master` no longer exists — 4c8e589
+- [x] 1.5 No markdown file describes an unsettled branch name — 4c8e589
 
 #### Manual
 
-- [x] 1.6 GitHub shows `main` as default with no stale `master`
-- [x] 1.7 Nothing external depended on `master`
+- [x] 1.6 GitHub shows `main` as default with no stale `master` — 4c8e589
+- [x] 1.7 Nothing external depended on `master` — 4c8e589
 
 ### Phase 2: Committed pack-and-verify scripts
 
@@ -1075,7 +1075,7 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 - [x] 2.5 Negative test: an emptied `wwwroot/` exits non-zero naming assertion 4
 - [x] 2.6 `python scripts/verify_deploy.py` against the live site exits `0` listing multiple assets
 - [x] 2.7 Negative test: verification against a 404 host exits non-zero
-- [ ] 2.8 `scripts/` committed under a `(p2)` message
+- [x] 2.8 `scripts/` committed under a `(p2)` message
 
 #### Manual
 
