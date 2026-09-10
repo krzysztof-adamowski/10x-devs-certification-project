@@ -38,6 +38,33 @@ The vault is the durable, outside-the-repo store already provisioned.
 - Review finding **F3** is a consequence: the site's identity holds `Key Vault Secrets User` at
   *vault* scope, so the app can read the dev credentials too.
 
+### Phase 3 note for `S-02`: progressive disclosure depends on async, it does not substitute for it
+
+Raised while reviewing the Phase 3 measurements. `S-02` will build the passage-submission flow
+against the PRD's 2 s acknowledgement budget and its "continuous visible progress" requirement, and
+the obvious shape is a component that escalates — a spinner at once, "this is taking longer than
+usual" after a delay, a cancel option as the 30 s generation bound approaches. That is a reasonable
+design and is close to what the PRD already asks for. Three things about it are easy to get wrong:
+
+- **It is not protection against a frozen UI.** The component can only render if the render loop is
+  free. Sync-over-async (`.Result`, `.Wait()`) or CPU-bound work on the circuit stops *every* render
+  including the progress message, so the affordance works precisely when things were already fine
+  and fails precisely when it was needed. Awaiting genuinely async work is what prevents the freeze;
+  the message is layered on top of that, never a substitute.
+- **It requires interactivity.** A statically rendered page has no circuit and cannot push an update
+  mid-request — the POST is one blocking round-trip. `/db-check` is deliberately static (see the
+  comment in `DbCheck.razor`), which is why it shows nothing of the kind. `S-02`'s submission
+  surface needs `@rendermode InteractiveServer` for this to be possible at all.
+- **Cancellation must be plumbed end to end.** A cancel button cancels nothing unless a
+  `CancellationToken` reaches the LLM call and EF Core. Abandoning a generation is otherwise just
+  hiding it. Untriaged candidates are never persisted, so an abandoned generation leaves no state
+  behind — that part is already safe by the product rules.
+
+Acknowledge at *t=0* rather than at the escalation point: a first signal at 1.5 s technically fits
+inside 2 s but spends nearly the whole budget before the user sees anything.
+
+Measured room available to `S-02`: see `baseline.md` — ~1.86 s warm, ~1.55 s worst observed.
+
 ### Phase 2 finding: the Data Protection key ring persists UNENCRYPTED
 
 `PersistKeysToDbContext<AppDbContext>()` stores the key ring in `DataProtectionKeys.Xml` as

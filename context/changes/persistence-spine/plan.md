@@ -967,22 +967,22 @@ painful one.
 
 #### Automated
 
-- [ ] 3.1 Rollback archive exists with its byte size recorded before publish runs
-- [ ] 3.2 All three archive shape assertions pass
-- [ ] 3.3 az webapp deploy reports RuntimeSuccessful with 1/1 instances
-- [ ] 3.4 GET / and GET /db-check both return 200 on the live host
-- [ ] 3.5 Every css/js URL referenced by the rendered /db-check page returns 200
-- [ ] 3.6 Startup log shows no unhandled exception and no key-persistence warning
-- [ ] 3.7 No repeated restart loop after deployment
-- [ ] 3.8 Startup log shows InitialSpine applied on the boot path to the app database
+- [x] 3.1 Rollback archive exists with its byte size recorded before publish runs
+- [x] 3.2 All three archive shape assertions pass
+- [x] 3.3 az webapp deploy reports RuntimeSuccessful with 1/1 instances
+- [x] 3.4 GET / and GET /db-check both return 200 on the live host
+- [x] 3.5 Every css/js URL referenced by the rendered /db-check page returns 200
+- [x] 3.6 Startup log shows no unhandled exception and no key-persistence warning
+- [x] 3.7 No repeated restart loop after deployment
+- [x] 3.8 Startup log shows InitialSpine applied on the boot path to the app database
 
 #### Manual
 
-- [ ] 3.9 /db-check on the live host writes a row and the count increments on the re-rendered page
-- [ ] 3.10 After az webapp restart, probe rows survive and no new key row was created
-- [ ] 3.11 A /db-check form rendered before the restart is still accepted after it, not rejected with 400
-- [ ] 3.12 Database round-trip timings recorded in baseline.md with their conditions
-- [ ] 3.13 The measured round-trip leaves the 2s budget intact with room for an LLM call
+- [x] 3.9 /db-check on the live host writes a row and the count increments on the re-rendered page
+- [x] 3.10 After az webapp restart, probe rows survive and no new key row was created
+- [x] 3.11 A /db-check form rendered before the restart is still accepted after it, not rejected with 400
+- [x] 3.12 Database round-trip timings recorded in baseline.md with their conditions
+- [x] 3.13 The measured round-trip leaves the 2s budget intact with room for an LLM call
 
 ### Phase 4: Update the repository's own record
 
