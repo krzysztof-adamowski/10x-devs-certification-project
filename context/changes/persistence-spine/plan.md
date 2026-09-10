@@ -948,20 +948,20 @@ painful one.
 
 #### Automated
 
-- [x] 2.1 Release build is clean at 0 warnings and 0 errors
-- [x] 2.2 .config/dotnet-tools.json exists and dotnet tool restore succeeds
-- [x] 2.3 dotnet ef migrations list shows InitialSpine
-- [x] 2.4 Running locally applies the migration to the development database
-- [x] 2.5 Both tables exist in the development database and the app database is still empty
-- [x] 2.6 git grep finds no connection string, password, or secret value in tracked files
-- [x] 2.7 Neither appsettings file contains a ConnectionStrings section
+- [x] 2.1 Release build is clean at 0 warnings and 0 errors — e6d3949
+- [x] 2.2 .config/dotnet-tools.json exists and dotnet tool restore succeeds — e6d3949
+- [x] 2.3 dotnet ef migrations list shows InitialSpine — e6d3949
+- [x] 2.4 Running locally applies the migration to the development database — e6d3949
+- [x] 2.5 Both tables exist in the development database and the app database is still empty — e6d3949
+- [x] 2.6 git grep finds no connection string, password, or secret value in tracked files — e6d3949
+- [x] 2.7 Neither appsettings file contains a ConnectionStrings section — e6d3949
 
 #### Manual
 
-- [x] 2.8 /db-check locally writes a row and the count increments
-- [x] 2.9 Restarting the local app shows previously written rows
-- [x] 2.10 DataProtectionKeys contains a row after the /db-check form is rendered and submitted
-- [x] 2.11 The Data Protection key-persistence startup warning no longer appears locally
+- [x] 2.8 /db-check locally writes a row and the count increments — e6d3949
+- [x] 2.9 Restarting the local app shows previously written rows — e6d3949
+- [x] 2.10 DataProtectionKeys contains a row after the /db-check form is rendered and submitted — e6d3949
+- [x] 2.11 The Data Protection key-persistence startup warning no longer appears locally — e6d3949
 
 ### Phase 3: Deploy and verify on the live instance
 

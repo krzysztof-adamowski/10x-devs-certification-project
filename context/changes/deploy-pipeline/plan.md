@@ -1087,18 +1087,18 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 
 #### Automated
 
-- [x] 3.1 App registration `gh-tenexcards-deploy` exists and returns one `appId`
-- [x] 3.2 `Contributor` role assignment present at resource-group scope
-- [x] 3.3 Federated credential lists the exact `refs/heads/main` subject
-- [x] 3.4 `gh secret list` shows all three secret names
-- [x] 3.5 No role assignment exists at subscription scope
-- [x] 3.6 `az ad app credential list` returns nothing — no client secret was created
+- [x] 3.1 App registration `gh-tenexcards-deploy` exists and returns one `appId` — 765e2bc
+- [x] 3.2 `Contributor` role assignment present at resource-group scope — 765e2bc
+- [x] 3.3 Federated credential lists the exact `refs/heads/main` subject — 765e2bc
+- [x] 3.4 `gh secret list` shows all three secret names — 765e2bc
+- [x] 3.5 No role assignment exists at subscription scope — 765e2bc
+- [x] 3.6 `az ad app credential list` returns nothing — no client secret was created — 765e2bc
 
 #### Manual
 
-- [x] 3.7 Subject string matches `gh repo view` character for character
-- [x] 3.8 If the contingency fired, the reason is written down for Phase 5
-- [x] 3.9 If the session gate stopped the phase, the user ran `az login` — the agent did not
+- [x] 3.7 Subject string matches `gh repo view` character for character — 765e2bc
+- [x] 3.8 If the contingency fired, the reason is written down for Phase 5 — 765e2bc
+- [x] 3.9 If the session gate stopped the phase, the user ran `az login` — the agent did not — 765e2bc
 
 ### Phase 4: The workflow
 
