@@ -1,9 +1,9 @@
 ---
 change_id: persistence-spine
 title: Persistence spine
-status: impl_reviewed
+status: implemented
 created: 2026-09-08
-updated: 2026-09-10
+updated: 2026-09-11
 archived_at: null
 ---
 

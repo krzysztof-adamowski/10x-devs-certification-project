@@ -988,15 +988,15 @@ painful one.
 
 #### Automated
 
-- [x] 4.1 grep for "Persistence is undecided" in AGENTS.md returns nothing
-- [x] 4.2 AGENTS.md contains all seven enumerated edits
-- [x] 4.3 deploy-plan.md contains a new dated deployment record naming the database and vault
-- [x] 4.4 roadmap.md shows Open Question 1 resolved, the S-01 persistence claim corrected, and the F-02 no-schema claim restated
-- [x] 4.5 infrastructure.md has four new risk rows, the DP-keys item reassigned, and forward-only wording matching AGENTS.md
-- [x] 4.6 Release build is still clean
+- [x] 4.1 grep for "Persistence is undecided" in AGENTS.md returns nothing — b055193
+- [x] 4.2 AGENTS.md contains all seven enumerated edits — b055193
+- [x] 4.3 deploy-plan.md contains a new dated deployment record naming the database and vault — b055193
+- [x] 4.4 roadmap.md shows Open Question 1 resolved, the S-01 persistence claim corrected, and the F-02 no-schema claim restated — b055193
+- [x] 4.5 infrastructure.md has four new risk rows, the DP-keys item reassigned, and forward-only wording matching AGENTS.md — b055193
+- [x] 4.6 Release build is still clean — b055193
 
 #### Manual
 
-- [x] 4.7 AGENTS.md reads start to finish with no dangling antecedents
-- [x] 4.8 All four records agree about what exists and how the connection string reaches the app
-- [x] 4.9 No new file:line citation was introduced that a later edit would invalidate
+- [x] 4.7 AGENTS.md reads start to finish with no dangling antecedents — b055193
+- [x] 4.8 All four records agree about what exists and how the connection string reaches the app — b055193
+- [x] 4.9 No new file:line citation was introduced that a later edit would invalidate — b055193
