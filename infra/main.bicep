@@ -14,9 +14,16 @@
 //   az deployment group what-if -g rg-tenexcards-plc -f infra/main.bicep
 //
 // This template provisions infrastructure only. Pushing code is a data-plane
-// operation and stays imperative:
+// operation and is NOT done from here. The normal path is CI:
+// .github/workflows/deploy.yml deploys every push to main. Infrastructure is
+// deliberately outside that workflow, so this template stays human-applied.
+//
+// The out-of-band / emergency deploy, still imperative:
 //   az webapp deploy -g rg-tenexcards-plc -n tenexcards-ka \
-//     --src-path TenExCards/bin/publish.zip --type zip --track-status true
+//     --src-path TenExCards/bin/publish.zip --type zip --track-status false
+// Build that zip with scripts/pack.py — never Compress-Archive — and note
+// --track-status false: true was measured hanging on "Pending" while the site
+// was already live. Verify with scripts/verify_deploy.py, not the exit code.
 
 targetScope = 'resourceGroup'
 

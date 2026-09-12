@@ -215,6 +215,25 @@ changing. Three settings there are deliberate and must not be "fixed":
 sit in GitHub secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`), and the
 federated credential is **exact-match on subject**, scoped to this repository on
 `refs/heads/main` — a run on any other ref cannot authenticate even holding all three.
+
+**Never hand-type a federated-credential subject; derive it.** This repository has
+`use_immutable_subject: true`, so GitHub presents
+`repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main` — **not** the name-based form its own
+documentation shows. A credential built from the documented form matches nothing on any ref and
+fails only at the first workflow run, as `AADSTS700213`. Measured 2026-09-10: it cost a phase.
+Build the subject from the value GitHub reports:
+`gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix`.
+
+The app registration `gh-tenexcards-deploy` therefore carries **two** federated credentials.
+`gh-main-immutable` is live; `gh-main` matches nothing and is kept deliberately, as the one that
+would become live if `use_immutable_subject` were switched off. **Do not delete either as a
+duplicate** — see the 2026-09-10/11 record in `../context/deployment/deploy-plan.md`.
+
+**OIDC removed the stored credential; it did not narrow who can deploy.** Anyone who can push to
+`main` can cause Azure to mint a `Contributor` token for the resource group. Branch protection and
+a narrower role are the controls for that, and neither is in place — do not read "we use OIDC" as
+meaning the deployment trust boundary is settled.
+
 **Never run `az webapp deployment list-publishing-profiles`.** It is `deny`-listed in
 `.claude/settings.json`: read-only against Azure, but it prints a live credential to stdout and an
 agent's stdout is logged. A publish-profile secret was the planned fallback if app registration

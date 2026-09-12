@@ -883,13 +883,10 @@ gh run list --workflow=deploy.yml --status success --limit 5 --json databaseId,h
 $PREVIOUS = gh run list --workflow=deploy.yml --status success --limit 2 --json databaseId -q '.[1].databaseId'
 "rollback candidate = $PREVIOUS"   # record in the deployment record
 
-gh run download $PREVIOUS --dir "$env:TEMP
-ollback-check"
-$zip = (Get-ChildItem "$env:TEMP
-ollback-check" -Recurse -Filter *.zip | Select-Object -First 1).FullName
-python -c "import sys,zipfile; n=zipfile.ZipFile(sys.argv[1]).namelist(); assert 'TenExCards.dll' in n; assert not any('\' in e for e in n); assert not any(e.startswith('publish/') for e in n); assert any(e.startswith('wwwroot/') for e in n); print('rollback artifact shape ok,', len(n), 'entries')" $zip
-Remove-Item -Recurse -Force "$env:TEMP
-ollback-check"
+gh run download $PREVIOUS --dir "$env:TEMP\rollback-check"
+$zip = (Get-ChildItem "$env:TEMP\rollback-check" -Recurse -Filter *.zip | Select-Object -First 1).FullName
+python -c "import sys,zipfile; n=zipfile.ZipFile(sys.argv[1]).namelist(); assert 'TenExCards.dll' in n; assert not any('\\' in e for e in n); assert not any(e.startswith('publish/') for e in n); assert any(e.startswith('wwwroot/') for e in n); print('rollback artifact shape ok,', len(n), 'entries')" $zip
+Remove-Item -Recurse -Force "$env:TEMP\rollback-check"
 ```
 
 Deliberately no `az webapp deploy` here. The rehearsal proves the artifact is present, retrievable
@@ -1182,37 +1179,37 @@ deploys and is out of scope at one worker, but it is why `verify_deploy.py` need
 
 #### Automated
 
-- [x] 4.1 `gh workflow view deploy.yml` returns the workflow — GitHub parsed and registered it
-- [x] 4.2 A push to `main` produces a run with conclusion `success`
-- [x] 4.3 The downloaded artifact passes all four assertions locally
-- [x] 4.4 The verification step logs multiple asset URLs, each `200`
-- [x] 4.5 Negative test: a broken build fails at publish and never reaches deploy
-- [x] 4.6 The revert restores a green run before the phase closes
+- [x] 4.1 `gh workflow view deploy.yml` returns the workflow — GitHub parsed and registered it — 66d5abd
+- [x] 4.2 A push to `main` produces a run with conclusion `success` — 66d5abd
+- [x] 4.3 The downloaded artifact passes all four assertions locally — 66d5abd
+- [x] 4.4 The verification step logs multiple asset URLs, each `200` — 66d5abd
+- [x] 4.5 Negative test: a broken build fails at publish and never reaches deploy — 66d5abd
+- [x] 4.6 The revert restores a green run before the phase closes — 66d5abd
 
 #### Manual
 
-- [x] 4.7 The deploy step completes rather than hanging
-- [ ] 4.8 The live site serves the triggering commit — DEFERRED to 5.8 (no observable signal until the build marker lands)
-- [x] 4.9 The artifact is listed with the expected name and plausible size
-- [x] 4.10 No secret value appears in the run log
+- [x] 4.7 The deploy step completes rather than hanging — 66d5abd
+- [x] 4.8 The live site serves the triggering commit — deferred to 5.8 and confirmed there: `/` renders `build be36194`, the commit that triggered run `34538642319`
+- [x] 4.9 The artifact is listed with the expected name and plausible size — 66d5abd
+- [x] 4.10 No secret value appears in the run log — 66d5abd
 
 ### Phase 5: Prove the artifact restores, and correct the record
 
 #### Automated
 
-- [ ] 5.1 `TenExCards/AGENTS.md` references `scripts/pack.py`
-- [ ] 5.2 Both `deploy-plan.md` and `AGENTS.md` reference `deploy.yml`
-- [ ] 5.3 The roadmap Baseline no longer claims `.github/` is absent
-- [ ] 5.4 `infra/main.bicep`'s comment drops `--track-status true`; diff is comment-only
-- [ ] 5.5 `deploy-plan.md`'s `## Rollback` leads with the retained-artifact restore and carries the
+- [x] 5.1 `TenExCards/AGENTS.md` references `scripts/pack.py`
+- [x] 5.2 Both `deploy-plan.md` and `AGENTS.md` reference `deploy.yml`
+- [x] 5.3 The roadmap Baseline no longer claims `.github/` is absent
+- [x] 5.4 `infra/main.bicep`'s comment drops `--track-status true`; diff is comment-only
+- [x] 5.5 `deploy-plan.md`'s `## Rollback` leads with the retained-artifact restore and carries the
       literal restore commands
-- [ ] 5.6 The previous successful run's artifact downloads and passes all four shape assertions
-- [ ] 5.7 `verify_deploy.py` exits `0` after the marker deploy
+- [x] 5.6 The previous successful run's artifact downloads and passes all four shape assertions
+- [x] 5.7 `verify_deploy.py` exits `0` after the marker deploy
 
 #### Manual
 
-- [ ] 5.8 The build marker is visible on `/` and matches the triggering commit's short SHA
-- [ ] 5.9 The cold-restore rehearsal used a real prior artifact; production was not mutated
-- [ ] 5.10 `AGENTS.md` reads coherently start to finish with no lost reasoning
-- [ ] 5.11 The new deployment record states which auth path was taken and why, records the OIDC subject collision, and explains why two federated credentials exist
-- [ ] 5.12 The emergency manual restore is reconstructable from the docs alone
+- [X] 5.8 The build marker is visible on `/` and matches the triggering commit's short SHA
+- [x] 5.9 The cold-restore rehearsal used a real prior artifact; production was not mutated — re-performed 2026-09-12 rather than audited: run `34537642474` (`publish-40ccddb`, 77 entries, 27,638,294 bytes) passes all four assertions; the deployments feed's newest entry is still the marker deploy 32.6h earlier and `/` still renders `build be36194`
+- [X] 5.10 `AGENTS.md` reads coherently start to finish with no lost reasoning
+- [x] 5.11 The new deployment record states which auth path was taken and why, records the OIDC subject collision, and explains why two federated credentials exist — verified 2026-09-12 against live state, not just presence: `sub_claim_prefix` matches the recorded live subject exactly, both federated credentials exist with the tabulated subjects, 0 client secrets, and exactly one role assignment (Contributor, scoped to `rg-tenexcards-plc`)
+- [X] 5.12 The emergency manual restore is reconstructable from the docs alone

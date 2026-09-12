@@ -95,9 +95,11 @@ Foundations below assume these are present and do NOT re-scaffold them.
   authorization attributes, and no Data Protection key persistence. The single endpoint is
   anonymous.
 - **Deploy / infra:** partial — `infra/main.bicep` provisions a B1 Linux App Service plan in
-  `polandcentral` with HTTPS-only and Always On, and the site is live. But deployment is manual CLI:
-  there is no `.github/` directory at all, so zero CI workflows exist despite `tech-stack.md`
-  declaring auto-deploy-on-merge as a decision. No container definition.
+  `polandcentral` with HTTPS-only and Always On, and the site is live. Deployment is **no longer
+  manual CLI**: `F-03` landed `.github/workflows/deploy.yml`, which builds, packs, retains and
+  verifies on every push to `main` via OIDC, delivering the auto-deploy-on-merge decision
+  `tech-stack.md` records. Infrastructure and app settings stay deliberately outside it, so
+  `az deployment group create` remains human work. No container definition.
 - **Observability:** partial (platform-only) — App Service filesystem logs at `Information`, retained
   3 days / 100 MB (`retentionInDays` / `retentionInMb` on the `logs` resource in
   `infra/main.bicep`). No telemetry service, no workspace, no health endpoint,

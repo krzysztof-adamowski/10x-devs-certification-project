@@ -475,7 +475,12 @@ Confirmation that the shape was right came from the container's own startup log:
   behaviour relative to the scaffold, recorded so it is not later mistaken for drift. Reasoning
   is in `TenExCards/AGENTS.md` under `### HTTPS`.
 
-## Rollback
+## Rollback (superseded — history)
+
+> **Do not follow this procedure.** The live one is `## Rollback` in the 2026-09-10/11 pipeline
+> record at the end of this file, which restores a retained CI artifact instead of a git-ignored
+> zip on one machine. This section is kept only as the record of what served production at the
+> time.
 
 B1 has no deployment slots, so rollback is manual. `TenExCards/bin/publish-scaffold-rollback.zip`
 (git-ignored, 372,646 bytes) is the exact archive that served production from 2026-08-31 until
@@ -648,7 +653,12 @@ deployment's one intended change and did land. `Microsoft.Web/*` is unreliable i
   development-machine firewall rule `dev-machine-krzychu`. The `-dev` secrets are the only copy of
   the contained user's credential.
 
-## Rollback
+## Rollback (superseded — history)
+
+> **Do not follow this procedure.** The live one is `## Rollback` in the 2026-09-10/11 pipeline
+> record at the end of this file, which restores a retained CI artifact instead of a git-ignored
+> zip on one machine. This section is kept only as the record of what served production at the
+> time, and for the forward-only migration note below, which still holds.
 
 `TenExCards/bin/publish-shell-rollback.zip` (git-ignored, **497,970 bytes**, 28 entries, no EF
 assemblies) is the archive that served production before this deploy; redeploy it with the same
@@ -659,3 +669,145 @@ assemblies) is the archive that served production before this deploy; redeploy i
 redeploying the shell leaves those three tables in place. That is harmless here — the old code
 simply ignores them — but it is the general shape of the forward-only rule: the archive is the
 rollback path for *code*, and there is no rollback path for *schema*.
+---
+
+# Deployment record — executed 2026-09-10/11 — the pipeline
+
+`F-03` (`deploy-pipeline`). **A push to `main` now deploys itself.** This record supersedes the
+`## Rollback` sections of both records above; they stay as history.
+
+## What is deployed, and by what
+
+`.github/workflows/deploy.yml` on every push to `main`, plus a bare `workflow_dispatch` (no inputs).
+The workflow is a thin caller — `scripts/pack.py` builds and shape-checks the archive,
+`scripts/verify_deploy.py` proves the live site serves. Both run identically on the development
+machine, so a CI failure is reproducible off CI.
+
+Five runs on 2026-09-10 (UTC) tell the whole story and are worth keeping:
+
+| Run | Commit | Outcome |
+| --- | --- | --- |
+| `34530622990` | `e82e5a3` | **failed at `azure/login`** — `AADSTS700213`, the subject collision below |
+| `34536825268` | `d8beee9` | first successful CI deploy, green in **70s** |
+| `34537581808` | `3cd479a` | negative test — **failed at `Publish`**; Pack, Login, Deploy and Verify all skipped |
+| `34537642474` | `40ccddb` | revert restored green in **1m1s** |
+| `34538642319` | `be36194` | build marker deploy, green |
+
+The negative test is the one worth reading twice: a compile error stopped the run at `Publish`, so
+**no credential was ever requested and no artifact was produced**. The pipeline cannot ship a
+non-compiling app, and that is now measured rather than assumed.
+
+## Authentication: OIDC, and the subject collision that broke the first run
+
+**The OIDC path was taken. There is no stored Azure credential** — the publish-profile contingency
+was never needed and is not in use. App registration `gh-tenexcards-deploy`, `Contributor` at
+resource-group scope only, no client secret.
+
+**The app registration carries two federated credentials. Only one works, and that is deliberate:**
+
+| Credential | Subject | Status |
+| --- | --- | --- |
+| `gh-main-immutable` | `repo:krzysztof-adamowski@322424024/10x-devs-certification-project@1350427864:ref:refs/heads/main` | **live** |
+| `gh-main` | `repo:krzysztof-adamowski/10x-devs-certification-project:ref:refs/heads/main` | matches nothing |
+
+Phase 3 provisioned `gh-main` against the name-based subject that GitHub's own documentation shows.
+**This repository does not emit that form.** It has `use_immutable_subject: true`, so GitHub inserts
+numeric owner and repository IDs into the subject. The first CI run therefore presented a subject
+Azure had never been told to trust, and was refused with **`AADSTS700213`**
+(*No matching federated identity record found for presented assertion subject*).
+
+That error string is the only symptom, and it arrives late: a credential built from the documented
+form is syntactically valid, provisions without complaint, and shows nothing wrong in
+`az ad app federated-credential list`. The mismatch surfaces at the first workflow run and nowhere
+earlier. Grep this file for `AADSTS700213` when it happens — the fix is to rebuild the subject from
+`sub_claim_prefix` as below, never to re-type it.
+
+`gh-main` is **retained on purpose**: it becomes the working credential if `use_immutable_subject` is
+ever switched off. Undocumented it would be a trap — an auditor sees two credentials, cannot tell
+which is load-bearing, and has even odds of deleting the working one while "removing the duplicate."
+That is why it is written down here rather than tidied away.
+
+**Never hand-type this subject.** Read it from GitHub:
+
+```powershell
+$PREFIX = gh api "repos/<owner>/<repo>/actions/oidc/customization/sub" --jq ".sub_claim_prefix"
+$SUBJECT = "${PREFIX}:ref:refs/heads/main"
+```
+
+**What OIDC did not close.** It removes the stored credential; it does not narrow who can deploy.
+Anyone who can push to `main` can cause Azure to mint a `Contributor` token for `rg-tenexcards-plc`
+— not by forging an identity (the subject is signed by GitHub and validated against its published
+keys) but by pushing code to the branch that legitimately holds one. Branch protection on `main`
+and a role narrower than `Contributor` are the controls that would narrow it. Neither is in place.
+Do not read "we use OIDC" as meaning this question is settled.
+
+## The build marker
+
+`/` renders `<footer class="build-marker">build <short-sha></footer>`. CI publishes with
+`-p:SourceRevisionId=<commit sha>`, which the SDK appends to `AssemblyInformationalVersion` after a
+`+`; the footer reads it back. A local build sets no revision id and renders `local` rather than a
+stale or invented SHA.
+
+This exists because without it **"which build is live" was unanswerable**. Two deploys of identical
+source are byte-identical, so a successful deploy and a total no-op looked the same. Confirmed live
+on 2026-09-11: `build be36194`, matching the commit that triggered run `34538642319`.
+
+## Artifact retention and the cold-restore rehearsal
+
+Every deployed archive is retained **90 days** as `publish-<short-sha>`. Because only a passing
+`pack.py` ever produces one, anything in that store is known shape-valid.
+
+Rehearsed 2026-09-11 against run **`34537642474`** (`publish-40ccddb`), the previous successful run:
+downloaded off the development machine and all four shape assertions re-asserted locally — 77
+entries, 27,638,294 bytes, `TenExCards.dll` at the root, no `publish/` prefix, no backslash entries,
+`wwwroot/` populated. **Production was not mutated to prove this.**
+
+`--status success` is load-bearing when picking a rollback candidate: the negative test leaves a
+*failed* run directly behind a good one, and a failed run uploaded no artifact at all.
+
+**On archive size.** These archives are ~27.5 MB, not the ~500 KB the 2026-09-08 record shows. That
+figure predates `F-02`. `Microsoft.Data.SqlClient` ships MSAL native broker binaries for every RID —
+`linux-x64` alone is 36 MB uncompressed, with osx and win variants adding ~15 MB more. Legitimate,
+not a packaging fault. Publishing with a `linux-x64` RID would cut it sharply; that is a future
+change, deliberately not this one.
+
+## Corrections to the earlier records
+
+- The 2026-09-08 record's step 5 asserts **no native `TenExCards` executable** in the archive. That
+  is **Windows-only**. A framework-dependent publish on Linux emits an extensionless apphost by that
+  name, so the check is a false positive on every CI build. It is not one of the four shape
+  assertions and is deliberately not carried into `pack.py`.
+- `--track-status true` in step 7 is **not used by the pipeline**, for the hang that record itself
+  documents. The deploy step passes `--track-status false` and lets `verify_deploy.py` be the
+  signal, with `timeout-minutes` as the backstop. Measured: the deploy step completes in ~31s.
+
+## Rollback
+
+**This supersedes the `## Rollback` sections of the two records above.** Rollback is still a manual
+`az webapp deploy` — B1 has no deployment slots, and redeploying a prior artifact from the workflow
+is deliberately out of scope. What changed is the *source*: a retained CI artifact, not a
+git-ignored zip on one laptop.
+
+**First choice — restore a retained artifact (90-day window):**
+
+```powershell
+gh run list --workflow=deploy.yml --status success --limit 10 --json databaseId,headSha,createdAt
+gh run download <run-id> --dir "$env:TEMP\restore"
+$zip = (Get-ChildItem "$env:TEMP\restore" -Recurse -Filter *.zip | Select-Object -First 1).FullName
+az webapp deploy -g rg-tenexcards-plc -n tenexcards-ka --src-path $zip --type zip `
+  --track-status false --enriched-errors true
+python scripts/verify_deploy.py
+```
+
+**Second choice — past the window, or the artifact store is unavailable:** rebuild from the commit.
+`git checkout <sha> -- TenExCards/`, `dotnet publish TenExCards/TenExCards.csproj -c Release`,
+`python scripts/pack.py`, then the same `az webapp deploy` above. This is why `pack.py` had to stay
+runnable on the development machine rather than living inside the workflow.
+
+**Third choice — the local zips**, now demoted to last resort:
+`TenExCards/bin/publish-shell-rollback.zip` (497,970 bytes, pre-EF) and
+`publish-scaffold-rollback.zip` (372,646 bytes). Both are git-ignored and exist on one machine.
+
+**None of these reverse a migration.** `InitialSpine` is applied to `sqldb-tenexcards`; redeploying
+older code leaves those tables in place. The archive is the rollback path for *code*. There is no
+rollback path for *schema*, by design — migrations here are forward-only.
