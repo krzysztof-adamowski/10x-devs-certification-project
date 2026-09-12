@@ -1,10 +1,10 @@
 ---
 change_id: deploy-pipeline
 title: Merges deploy themselves
-status: implemented
+status: archived
 created: 2026-09-08
 updated: 2026-09-12
-archived_at: null
+archived_at: 2026-09-12T08:58:42Z
 ---
 
 ## Notes

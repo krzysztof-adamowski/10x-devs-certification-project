@@ -428,3 +428,5 @@ first milestone. Closure entries are written when a milestone closes.)
 - **F-02: (foundation) the deployed app reads and writes a provisioned database, with the
   connection string set outside infrastructure-as-code and a repeatable migration path in place.** —
   Archived 2026-09-12 → `context/archive/2026-09-08-persistence-spine/`. Lesson: —.
+- **F-03: (foundation) a merge to the main branch builds, packages, and deploys the app, and the
+  deployable artifact is retained.** — Archived 2026-09-12 → `context/archive/2026-09-08-deploy-pipeline/`. Lesson: —.
