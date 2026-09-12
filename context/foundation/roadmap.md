@@ -425,3 +425,6 @@ first milestone. Closure entries are written when a milestone closes.)
 
 - **F-01: (foundation) the deployed app serves an interactive Blazor Server page over a live
   circuit, and the template sample route is gone.** — Archived 2026-09-12 → `context/archive/2026-09-08-blazor-server-shell/`. Lesson: —.
+- **F-02: (foundation) the deployed app reads and writes a provisioned database, with the
+  connection string set outside infrastructure-as-code and a repeatable migration path in place.** —
+  Archived 2026-09-12 → `context/archive/2026-09-08-persistence-spine/`. Lesson: —.

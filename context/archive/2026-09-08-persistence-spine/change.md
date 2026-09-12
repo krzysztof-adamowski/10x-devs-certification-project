@@ -1,10 +1,10 @@
 ---
 change_id: persistence-spine
 title: Persistence spine
-status: implemented
+status: archived
 created: 2026-09-08
-updated: 2026-09-11
-archived_at: null
+updated: 2026-09-12
+archived_at: 2026-09-12T08:57:39Z
 ---
 
 ## Notes
