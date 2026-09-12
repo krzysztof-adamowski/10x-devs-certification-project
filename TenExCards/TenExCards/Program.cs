@@ -143,8 +143,15 @@ var app = builder.Build();
 //
 // The outcome is logged explicitly rather than left to an unhandled exception, and this sits after
 // the logging pipeline is available so the log line actually goes somewhere.
-using (var scope = app.Services.CreateScope())
+//
+// GUARDED FOR THE TEST HARNESS ONLY — defaults to running the migration. WebApplicationFactory runs
+// this entry point and intercepts at IHost.Start(), so this block executes in tests too, after
+// ConfigureTestServices has already swapped in the EF in-memory provider; GetPendingMigrationsAsync
+// throws against that provider. A missing setting must never silently skip a real migration, so the
+// default is "run it" and only the test factory sets Testing:SkipStartupMigration to true.
+if (!builder.Configuration.GetValue<bool>("Testing:SkipStartupMigration"))
 {
+    using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
@@ -203,3 +210,7 @@ app.MapRazorComponents<App>()
 app.MapIdentityLogout().AllowAnonymous();
 
 app.Run();
+
+// Top-level statements generate an internal Program class. TenExCards.Tests depends on this
+// declaration to name the entry point for WebApplicationFactory<Program> — do not remove it.
+public partial class Program;

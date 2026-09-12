@@ -76,8 +76,15 @@ jobs:
       # which commit it is, and two deploys of identical source are indistinguishable.
       - name: Publish
         run: >
-          dotnet publish TenExCards/TenExCards.csproj -c Release
+          dotnet publish TenExCards/TenExCards/TenExCards.csproj -c Release
           -p:SourceRevisionId=${{ github.sha }}
+
+      # Named by path, not resolved through the solution -- TenExCards/TenExCards.slnx lists
+      # both projects, and a bare `dotnet test` there would build the non-test application
+      # project too. The solution stays an IDE/local-build convenience, never something CI
+      # discovers implicitly.
+      - name: Test
+        run: dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj
 
       # `python3` rather than `python`: guaranteed present on the Linux runner image. Same
       # script, same defaults as a local `python scripts/pack.py` on Windows.
@@ -93,7 +100,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: publish-${{ steps.build.outputs.short_sha }}
-          path: TenExCards/bin/publish.zip
+          path: TenExCards/TenExCards/bin/publish.zip
           retention-days: 90
           if-no-files-found: error
 
@@ -114,7 +121,7 @@ jobs:
           az webapp deploy \
             -g rg-tenexcards-plc \
             -n tenexcards-ka \
-            --src-path TenExCards/bin/publish.zip \
+            --src-path TenExCards/TenExCards/bin/publish.zip \
             --type zip \
             --track-status false \
             --enriched-errors true

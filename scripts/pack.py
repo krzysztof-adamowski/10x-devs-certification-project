@@ -27,8 +27,8 @@ import os
 import sys
 import zipfile
 
-DEFAULT_PUBLISH_DIR = os.path.join("TenExCards", "bin", "Release", "net10.0", "publish")
-DEFAULT_OUT = os.path.join("TenExCards", "bin", "publish.zip")
+DEFAULT_PUBLISH_DIR = os.path.join("TenExCards", "TenExCards", "bin", "Release", "net10.0", "publish")
+DEFAULT_OUT = os.path.join("TenExCards", "TenExCards", "bin", "publish.zip")
 
 
 def build_archive(publish_dir, out_path):
@@ -160,7 +160,7 @@ def main(argv=None):
     if not os.path.isdir(args.publish_dir):
         print(
             "error: publish directory not found: %s\n"
-            "       run: dotnet publish TenExCards/TenExCards.csproj -c Release"
+            "       run: dotnet publish TenExCards/TenExCards/TenExCards.csproj -c Release"
             % args.publish_dir,
             file=sys.stderr,
         )

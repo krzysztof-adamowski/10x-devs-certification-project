@@ -32,14 +32,14 @@ its shape — it does not trust its own write, because the banned `Compress-Arch
 by writing something other than what it was asked to.
 
 ```powershell
-dotnet publish TenExCards/TenExCards.csproj -c Release
+dotnet publish TenExCards/TenExCards/TenExCards.csproj -c Release
 python scripts/pack.py
 ```
 
 | Argument | Default |
 | --- | --- |
-| `--publish-dir` | `TenExCards/bin/Release/net10.0/publish` |
-| `--out` | `TenExCards/bin/publish.zip` |
+| `--publish-dir` | `TenExCards/TenExCards/bin/Release/net10.0/publish` |
+| `--out` | `TenExCards/TenExCards/bin/publish.zip` |
 
 The four assertions, each named in the output with `PASS` or `FAIL`:
 

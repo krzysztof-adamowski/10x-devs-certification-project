@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TenExCards.Tests/TenExCards.Tests.csproj" />
+  <Project Path="TenExCards/TenExCards.csproj" />
+</Solution>

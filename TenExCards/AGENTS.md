@@ -9,10 +9,17 @@ platform research and the risk register are in `context/foundation/infrastructur
 
 *Paths.* Agent sessions are rooted at the **repo root**, one level above this file, and paths here
 are written from there: `context/`, `infra/`, `scripts/` and `.github/` are siblings of
-`TenExCards/`, not children of it. The one exception is product code, named relative to this
-file's own directory — `Program.cs` means `TenExCards/Program.cs` and
-`Components/Pages/Home.razor` means `TenExCards/Components/Pages/Home.razor`. That is also why
-`dotnet` needs `TenExCards/` — `cd` there, or pass `--project TenExCards/TenExCards.csproj`.
+`TenExCards/`, not children of it. **`TenExCards/` is a solution folder, not the project folder**
+— alongside this file it holds `TenExCards.slnx` and two project subfolders one level deeper:
+`TenExCards/TenExCards/` (the product code) and `TenExCards/TenExCards.Tests/` (`S-01`). Product
+code is named relative to that inner folder — one level below this file's own directory —
+`Program.cs` means `TenExCards/TenExCards/Program.cs` and `Components/Pages/Home.razor` means
+`TenExCards/TenExCards/Components/Pages/Home.razor`. That is also why `dotnet` needs
+`TenExCards/TenExCards/` — `cd` there, or pass `--project TenExCards/TenExCards/TenExCards.csproj`
+— or build the whole solution from the repo root with `dotnet build TenExCards/TenExCards.slnx`.
+The double `TenExCards/TenExCards/` is not a typo; do not "simplify" it by flattening one level
+back out, and do not assume a bare `TenExCards/<file>` mention elsewhere in this repository (CI,
+scripts, older dated records) still resolves — check whether it predates the `S-01` restructure.
 
 *Slice IDs.* `F-nn` and `S-nn` are roadmap slices, each defined in
 `context/foundation/roadmap.md` alongside the change-id that implements it. Look one up there
