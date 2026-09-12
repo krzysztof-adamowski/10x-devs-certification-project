@@ -1167,20 +1167,20 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 4.1 dotnet build against the solution builds both projects
-- [x] 4.2 dotnet test passes from a clean dotnet tool restore
-- [x] 4.3 A test asserts a registered user's UserName equals the submitted email, and fails when registration stops setting it
-- [x] 4.4 Tests assert the configured password length, disabled character classes, lockout and seven-day sliding cookie
-- [x] 4.5 Tests assert password storage: framework hasher, IdentityV3 compatibility mode, observed iteration count, and a PasswordHash that is neither null nor the submitted password
-- [x] 4.6 AwesomeAssertions is referenced and FluentAssertions is not
-- [x] 4.7 CI is green and its step list shows the test step running before publish
-- [x] 4.8 deploy.yml names both csproj paths explicitly, neither resolved through the solution
-- [x] 4.9 The migration-skip flag defaults to running the migration when unset
+- [x] 4.1 dotnet build against the solution builds both projects — dbd121e
+- [x] 4.2 dotnet test passes from a clean dotnet tool restore — dbd121e
+- [x] 4.3 A test asserts a registered user's UserName equals the submitted email, and fails when registration stops setting it — dbd121e
+- [x] 4.4 Tests assert the configured password length, disabled character classes, lockout and seven-day sliding cookie — dbd121e
+- [x] 4.5 Tests assert password storage: framework hasher, IdentityV3 compatibility mode, observed iteration count, and a PasswordHash that is neither null nor the submitted password — dbd121e
+- [x] 4.6 AwesomeAssertions is referenced and FluentAssertions is not — dbd121e
+- [x] 4.7 CI is green and its step list shows the test step running before publish — dbd121e
+- [x] 4.8 deploy.yml names both csproj paths explicitly, neither resolved through the solution — dbd121e
+- [x] 4.9 The migration-skip flag defaults to running the migration when unset — dbd121e
 
 #### Manual
 
-- [ ] 4.10 A deliberately failing test fails the run and the deploy step never runs, read from the step list
-- [ ] 4.11 The suite passes with no real connection string and no network, proving it does not touch Azure SQL
+- [x] 4.10 A deliberately failing test fails the run and the deploy step never runs, read from the step list — dbd121e
+- [x] 4.11 The suite passes with no real connection string and no network, proving it does not touch Azure SQL — dbd121e
 
 ### Phase 5: Retire the proof-of-life surfaces
 

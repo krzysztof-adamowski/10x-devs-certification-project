@@ -11,6 +11,71 @@ archived_at: null
 
 <!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->
 
+### Phase 4 finding: `TenExCards/` restructured into a solution folder, on request
+
+The plan's Phase 4 contract reads "`TenExCards.sln` at the repository root." Mid-phase, on explicit
+instruction, the layout changed instead to `TenExCards/` as a **solution** folder — `TenExCards.slnx`
+(XML format, also a deviation from the literal `.sln` the contract names) plus two project
+subfolders one level deeper: `TenExCards/TenExCards/` (product code, moved via `git mv`) and
+`TenExCards/TenExCards.Tests/` (the new test project). `AGENTS.md`, `CLAUDE.md` and `.gitignore`
+stay at the outer `TenExCards/` level — verified necessary, not just convenient, since `CLAUDE.md`'s
+own `@AGENTS.md` and `@../context/foundation/prd.md` imports only resolve from that location.
+
+Every path this broke was updated: `deploy.yml`'s publish/artifact/deploy paths and its new `Test`
+step, `scripts/pack.py`'s default publish and archive paths, `scripts/README.md`'s examples, and
+`AGENTS.md`'s own `*Paths.*` convention paragraph (made explicit about the double
+`TenExCards/TenExCards/` rather than leaning on "relative to this file's own directory," which now
+hides an extra hop). `context/deployment/deploy-plan.md` and `context/foundation/roadmap.md` were
+deliberately left alone — their `TenExCards/…` mentions are dated measurements of a past state, not
+present-tense claims a search should find clean. Verified end to end from the new layout: solution
+build, `dotnet-ef`, `dotnet user-secrets`, `dotnet publish`, `pack.py`'s four assertions, `dotnet
+test`, and a full CI deploy.
+
+### Phase 4 finding: swapping `AppDbContext` to the EF in-memory provider needs more than `RemoveAll<DbContextOptions<T>>`
+
+`AddDbContextFactory<AppDbContext>` — called once in `Program.cs` for SqlServer, once in the test
+factory for InMemory — does not only register `DbContextOptions<AppDbContext>`; it also registers
+the options-configuring delegate itself as its own DI entry (an `IDbContextOptionsConfiguration
+<AppDbContext>`-shaped registration), which `DbContextOptionsFactory<TContext>` applies **additively**
+to every entry found, not last-registration-wins. Removing only `DbContextOptions<AppDbContext>` and
+`IDbContextFactory<AppDbContext>` before re-registering left that first entry in place, so the built
+options carried both `UseSqlServer` and `UseInMemoryDatabase` — failing at first use with "Services
+for database providers ... have been registered in the service provider." Fixed by removing every DI
+descriptor whose service type is, or is generic over, `AppDbContext` (filtering by
+`ServiceType.GetGenericArguments().Contains(typeof(AppDbContext))`), which catches that entry without
+needing to name its internal interface type.
+
+### Phase 4 finding: `WebApplicationFactory` defaults to Development on its own — measured, not assumed
+
+The plan calls for verifying this rather than assuming it, since it decides whether
+`TenExCardsWebApplicationFactory`'s explicit `UseEnvironment(Environments.Development)` is
+belt-and-braces or load-bearing (the only thing stopping a unit test from reaching Key Vault).
+Measured via a bare `WebApplicationFactory<Program>` with no environment override: resolving
+`IHostEnvironment` reports `Development`. It is belt-and-braces — kept anyway, and asserted as its
+own test (`IdentityConfigurationTests.WebApplicationFactory_NoEnvironmentOverride_DefaultsToDevelopment`)
+so a future framework change to that default fails loudly rather than silently starting to reach Key
+Vault from every test run.
+
+### Phase 4 finding: the negative-test proof (criterion 4.10), read from the step list rather than its colour
+
+A throwaway `_DeliberatelyFailingTest.cs` (one `Assert.Fail`) was committed and pushed on its own.
+The resulting run (`34697369523`) shows exactly the shape the criterion asks for: `Test` failed, and
+every step after it — `Publish`, `Pack and verify archive shape`, `Retain the archive`, `Azure login
+(OIDC)`, `Deploy`, `Verify the deployed site` — shows skipped (`-`) in the step list, not merely a
+red run overall. Reverted in the next commit (`dbd121e`); CI re-ran green.
+
+### Phase 4 finding: no real network reachable (criterion 4.11), observed rather than argued
+
+Rather than resting on the architecture (EF in-memory provider, Key Vault guard skipped in
+Development, boot-path migration skipped), the test run was monitored directly: `Get-NetTCPConnection`
+polled every ~1.5s against both the outer `dotnet test` CLI process and the `testhost.exe` process
+actually executing the suite. The outer CLI process opened three `Established` connections to
+`20.50.88.242:443` — a Microsoft/Azure IP consistent with .NET SDK CLI telemetry (`DOTNET_CLI_
+TELEMETRY_OPTOUT` was unset), a background behaviour of the `dotnet` command itself and unrelated to
+the code under test. `testhost.exe` — where `AppDbContext`, `UserManager` and `SignInManager` actually
+ran — showed zero `Established` entries at any point, only listening sockets. That absence, not an
+assumption about what the in-memory provider "should" do, is the evidence for this criterion.
+
 ### Phase 3 finding: the fallback policy gates `MapStaticAssets()` but not the render-mode endpoint
 
 The plan warned that `MapStaticAssets()` and `AddInteractiveServerRenderMode()` both map endpoints
