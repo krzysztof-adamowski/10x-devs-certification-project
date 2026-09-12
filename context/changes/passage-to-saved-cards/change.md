@@ -1,9 +1,9 @@
 ---
 change_id: passage-to-saved-cards
 title: Passage to saved cards
-status: plan_reviewed
+status: implementing
 created: 2026-09-12
-updated: 2026-09-12
+updated: 2026-09-13
 ---
 
 ## Notes

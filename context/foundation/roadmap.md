@@ -3,7 +3,7 @@ project: "10xCards"
 version: 1
 status: draft
 created: 2026-09-02
-updated: 2026-09-12
+updated: 2026-09-13
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -62,7 +62,7 @@ reason to exist.
 | F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | done |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | done |
-| S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | planning |
+| S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | in-progress |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | proposed |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | proposed |
 | S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | proposed |
@@ -285,7 +285,7 @@ rather than reopening them.
   measures the interface instead of the cards. The externally required test written from the
   learner's perspective attaches here, with US-01's acceptance criteria as its basis. If this slice
   slips, the milestone slips.
-- **Status:** planning
+- **Status:** in-progress
 
 ### S-03: Learner edits a candidate before accepting it
 

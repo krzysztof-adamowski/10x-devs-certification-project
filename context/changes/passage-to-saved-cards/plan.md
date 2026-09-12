@@ -1050,15 +1050,15 @@ this phase is sequenced first.
 
 #### Automated
 
-- [ ] 1.1 Solution builds
-- [ ] 1.2 Tests pass
-- [ ] 1.3 Migration creates exactly one table and one index, altering no Identity table
-- [ ] 1.4 `CardOwnershipTests` observed failing with the owner filter removed
+- [x] 1.1 Solution builds
+- [x] 1.2 Tests pass
+- [x] 1.3 Migration creates exactly one table and one index, altering no Identity table
+- [x] 1.4 `CardOwnershipTests` observed failing with the owner filter removed
 
 #### Manual
 
-- [ ] 1.5 Migration applies cleanly to `sqldb-tenexcards-dev` with the expected columns and index
-- [ ] 1.6 No entity, store method or column can hold a passage
+- [x] 1.5 Migration applies cleanly to `sqldb-tenexcards-dev` with the expected columns and index
+- [x] 1.6 No entity, store method or column can hold a passage
 
 ### Phase 2: The generation client and the card-quality specification
 

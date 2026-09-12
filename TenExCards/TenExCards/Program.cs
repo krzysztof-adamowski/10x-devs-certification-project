@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using TenExCards.Cards;
 using TenExCards.Components;
 using TenExCards.Components.Account;
 using TenExCards.Data;
@@ -40,6 +41,11 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+
+// SCOPED, matching the AppDbContext registration above — a singleton store would capture one
+// context for the lifetime of the process. This is the only type allowed to query the Cards table;
+// every member takes the owner id, so the account boundary cannot be forgotten at a call site.
+builder.Services.AddScoped<ICardStore, CardStore>();
 
 // EnableRetryOnFailure above is not optional: Azure SQL produces transient faults, and a retry the
 // application does not make becomes a user-visible failure against a 2s acknowledgement budget.
