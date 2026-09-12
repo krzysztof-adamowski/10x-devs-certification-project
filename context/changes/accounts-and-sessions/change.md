@@ -11,6 +11,55 @@ archived_at: null
 
 <!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->
 
+### Phase 6 finding: the scaffold section could not simply be deleted, and two of its facts had no home
+
+The plan's contract reads "remove the scaffold-state parts." Executing that literally would have
+dropped three things that are not scaffold state and that the section's own warning named only two
+of:
+
+1. **The persistence decision** — moved to `### Persistence: two databases, one server, and what no
+   template recreates`, as the warning directs.
+2. **The budget rule** — moved to `## Budget Posture` in `context/foundation/infrastructure.md`,
+   likewise. Recorded there explicitly as *the rule's only home*, because `CLAUDE.md` deliberately
+   does **not** import `infrastructure.md`, so an agent reading only `AGENTS.md` will no longer find
+   the rule. `AGENTS.md` now points at it from the persistence section rather than restating it.
+3. **The per-page interactivity fact** — not named by the warning, and not scaffold state either.
+   It is why the Identity pages carry no `@rendermode` (a circuit cannot write a cookie to the
+   response), so deleting it would have removed the reason for a live design decision. Kept, with
+   the retired `CircuitCheck.razor` worked-example sentence dropped from around it.
+
+The section was retitled `## What is wired, and what is not` rather than deleted outright: the LLM
+client is still genuinely missing, and the missing-pieces list was the only record of that.
+
+### Phase 6 finding: two verified traps had no durable home outside this change record
+
+Both were discovered during implementation and would otherwise have survived only in `change.md`,
+which no future slice reads. Each is now a rule in `TenExCards/AGENTS.md`:
+
+- **`MapStaticAssets()` needs `.AllowAnonymous()` under a fallback policy**, and
+  `scripts/verify_deploy.py` structurally cannot catch its absence — it follows redirects and asserts
+  status, so a gated stylesheet resolves `302 → /Account/Login → 200` and records a pass. Now
+  `### Authorization defaults to protected`, together with why
+  `AddInteractiveServerRenderMode()`'s builder was deliberately **not** given the same treatment.
+- **Testing for `<value>` misreads a correctly encrypted key row.** The Data Protection bullet in
+  `## Never do these` now states the discriminating check (absence of `<masterKey>` and of the
+  plaintext writer's `Warning: the key below is in an unencrypted form.` comment) rather than
+  leaving the obvious wrong one available.
+
+### Phase 6 finding: one runnable command was corrected beyond the plan's contract
+
+The plan names one command Phase 5 broke — `verify_deploy.py --base-url .../db-check` in the `F-02`
+record — and says everything else in `deploy-plan.md` stays, because dated measurements must not be
+edited to make a search come up clean.
+
+A second broken command was found and corrected on the same reasoning **inverted**: the `## Rollback`
+section's second choice still read `dotnet publish TenExCards/TenExCards.csproj`, which Phase 4's
+solution-folder restructure invalidated. That is not a dated measurement — it is a live procedure
+someone runs when production is already broken, so leaving it stale would fail on the day it matters
+most. Corrected with a dated note saying so. The distinction that decided both: **a record of what
+was run stays; an instruction for what to run gets fixed.** The `/db-check` block was kept unedited
+under a superseded marker because it is the former; the rollback line is the latter.
+
 ### Phase 5 finding: the inherited tests named the retired routes, and removing the pages required fixing the auth-boundary assumption baked into them
 
 `AuthBoundaryTests.cs` (landed in Phase 4) used `/circuit-check` as its worked example of "a gated
@@ -141,6 +190,26 @@ interactive-circuit hub. It was not needed regardless: no anonymous page in this
 `@rendermode InteractiveServer` (the only interactive page, `CircuitCheck.razor`, has no
 `[AllowAnonymous]` and is now itself gated), so `blazor.web.js` never attempts to negotiate a circuit
 for an anonymous visitor. Revisit this the first time an anonymous page needs interactivity.
+
+### Phase 3 finding: sign-out is an endpoint, not the third page the plan named
+
+The plan's `#### 5. Register, Login and Logout pages` asks for "a logout confirmation surface"
+alongside the two real pages. It was implemented instead as a POST endpoint —
+`MapIdentityLogout()` in `Components/Account/IdentityEndpoints.cs`, a trimmed equivalent of the
+template's `MapAdditionalIdentityEndpoints` carrying only that route — and the reason is the same
+one that decided the render mode for the whole slice: **clearing the cookie is a response-header
+operation**, so a component action cannot perform it, and a `GET` sign-out would be trivially
+triggerable cross-site. A confirmation *page* would have bought nothing, since the POST it submits
+is the part that must exist.
+
+Two consequences worth carrying: it is mapped **after** `MapRazorComponents<App>()`, per the
+template's own convention for account endpoints, and it needs an explicit `.AllowAnonymous()` —
+posting logout twice, or after the cookie has already expired, must land on the home page rather
+than `302` to login.
+
+Recorded because the plan's "three pages" phrasing propagated into `TenExCards/AGENTS.md` and
+`roadmap.md` before anyone compared it against the code; both were corrected on 2026-09-12. Read
+the plan's section 5 heading as naming three *surfaces*, only two of which are pages.
 
 ### Phase 3 finding: lockout triggers on the 5th failed attempt, not the 6th
 

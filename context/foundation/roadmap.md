@@ -132,8 +132,8 @@ rather than reopening them.
 - **Landed 2026-09-08:** Blazor Web App with **per-page interactivity** — pages are static-rendered
   unless they carry `@rendermode InteractiveServer`, which is what lets `S-01`'s Identity pages write
   cookies to the response without a carve-out. `app.UseHttpsRedirection()` was removed and the
-  platform is now the sole enforcement point (Open Roadmap Question 4). `CircuitCheck.razor` proves
-  the circuit is live and is deleted by `S-01`.
+  platform is now the sole enforcement point (Open Roadmap Question 4). A throwaway page proved the
+  circuit was live; `S-01` retired it on 2026-09-12, as this slice always intended.
 - **Status:** done
 
 ### F-02: Persistence spine — provisioned database reachable from the deployed app
@@ -153,9 +153,10 @@ rather than reopening them.
     acknowledgement budget — Owner: user (resolved downstream as course-work). Block: no.~~
     **Resolved 2026-09-10 in `F-02`:** EF Core 10.0.12 against **Azure SQL, S0 provisioned**. Full
     reasoning in Open Roadmap Question 1; do not re-open the provider question.
-- **Risk:** Deliberately designs no **domain** schema — identity tables still arrive with `S-01` and
-  the card entity with `S-02`. Two tables exist (`SpineProbes`, a throwaway `S-01` deletes, and
-  `DataProtectionKeys`), and neither models anything about the product. Three recorded traps sit
+- **Risk:** Deliberately designs no **domain** schema — identity tables arrived with `S-01` and the
+  card entity arrives with `S-02`. As shipped it created two tables, `SpineProbes` and
+  `DataProtectionKeys`, neither modelling anything about the product; `S-01` dropped the first on
+  2026-09-12, so only `DataProtectionKeys` survives from this foundation. Three recorded traps sit
   here: an auto-pausing tier silently breaks the acknowledgement requirement; declaring application
   settings inside infrastructure-as-code makes a routine, successful-looking deployment delete the
   connection string; and `Database.Migrate()` on the boot path means a bad migration takes the app
@@ -164,8 +165,10 @@ rather than reopening them.
   `sqldb-tenexcards` (S0 provisioned) for the app and `sqldb-tenexcards-dev` (Basic) for local
   development, the split enforced by the contained user `tenexdev`. Key Vault `kv-tenexcards-plc`
   holds the connection strings; the app reads a versionless Key Vault *reference*. The Data
-  Protection key ring now persists to `DataProtectionKeys` and survives a container restart — but is
-  stored **unencrypted**, which `S-01` closes rather than `F-02`.
+  Protection key ring persists to `DataProtectionKeys` and survives a container restart. As shipped
+  it was stored **unencrypted**, which this slice left to `S-01` rather than closing itself;
+  `S-01` closed it on 2026-09-12 with `.ProtectKeysWithAzureKeyVault(...)`, so the ring is
+  encrypted at rest today.
 - **Status:** done
 
 ### F-03: Merges deploy themselves
@@ -222,9 +225,15 @@ rather than reopening them.
 - **Parallel with:** F-03
 - **Blockers:** —
 - **Unknowns:**
-  - How long is the inactivity window before a signed-in session expires? Carried from the PRD's
+  - ~~How long is the inactivity window before a signed-in session expires? Carried from the PRD's
     `## Open Questions`, which classes it as a planning detail rather than a product decision —
-    Owner: user. Block: no.
+    Owner: user. Block: no.~~ **Resolved 2026-09-12 in `S-01`: seven days, sliding.** Set in
+    `Program.cs` via `ConfigureApplicationCookie` (`ExpireTimeSpan` seven days,
+    `SlidingExpiration` true), so the window renews on activity rather than counting from sign-in.
+    Sliding is the decision, not the number: with no password recovery a forgotten password is a
+    dead account, so signing an active learner out buys nothing and costs the one credential they
+    have. Asserted by a test rather than left to the comment beside it. Full reasoning in Open
+    Roadmap Question 3.
 - **Risk:** Identity's signing keys are not persisted by default, and the failure this causes looks
   like a scaling problem while actually biting at a single instance: every container restart —
   deploy, platform maintenance, recycle — logs every user out and starts rejecting form submissions.
@@ -239,7 +248,18 @@ rather than reopening them.
   weigh. This is also the first slice to persist **account-scoped** data, so the test project is
   created here and its tests ship alongside this code; `F-02` touched persistence first but
   contains no deterministic rule to test.
-- **Status:** planning
+- **Landed 2026-09-12:** Identity on `IdentityUserContext<ApplicationUser>` — the **role-free** base,
+  so "never add roles" is structural under forward-only migrations rather than conventional — with
+  register and sign in as two hand-written statically rendered pages, and sign-out as a POST
+  endpoint rather than a third page — a component action cannot clear the cookie — against the .NET
+  template's 47 files. Authorization defaults to **protected** via a fallback policy; four surfaces
+  carry `[AllowAnonymous]`, and `MapStaticAssets()` needs it explicitly or every stylesheet
+  `302`s to the login path in a way `verify_deploy.py` records as a pass. The risk above was
+  discharged in both halves: persistence re-verified in its strongest form (sign in, restart the
+  container, reuse the pre-restart cookie), and the ring **encrypted at rest** with a Key Vault key,
+  done first while no account existed because closing it means discarding a key. `TenExCards.Tests`
+  exists and gates the deploy — proven by failing one deliberately and reading the run's step list.
+- **Status:** in-progress
 
 ### S-02: Learner turns a pasted passage into saved cards
 
@@ -340,7 +360,7 @@ rather than reopening them.
 | F-01       | `blazor-server-shell`    | Replace the API scaffold with an interactive Blazor Server shell | —                     | Done 2026-09-08 — see `## Done`                       |
 | F-02       | `persistence-spine`      | Stand up a provisioned database reachable from the deployed app  | —                     | Done 2026-09-10 — see `## Done`                       |
 | F-03       | `deploy-pipeline`        | Deploy automatically on merge to main                            | —                     | Done 2026-09-11 — see `## Done`                       |
-| S-01       | `accounts-and-sessions`  | Register, sign in, and sign out of a private account             | planned               | Plan reviewed 2026-09-12; next `/10x-implement`       |
+| S-01       | `accounts-and-sessions`  | Register, sign in, and sign out of a private account             | —                     | Implemented 2026-09-12 — awaiting `/10x-archive`      |
 | S-02       | `passage-to-saved-cards` | Paste a passage and finish with accepted cards saved             | no                    | Needs S-01 — north star                               |
 | S-03       | `edit-before-accepting`  | Edit a candidate card before accepting it                        | no                    | Needs S-02                                            |
 | S-04       | `manage-saved-cards`     | Find a saved card in order to edit or delete it                  | no                    | Needs S-02                                            |
@@ -364,16 +384,27 @@ to copy into issues, but it must not duplicate the detailed roadmap body.
    has no per-application partition — stays off development machines. The connection string reaches
    the app as a Key Vault reference resolved through the site's system-assigned identity, so it is
    in neither the repository nor `infra/main.bicep`. Verified on the deployed instance: the
-   reference reports `Resolved`, `/db-check` writes and reads across a container restart, and the
-   first migration was applied on the boot path to a database that had zero tables. Owner: user.
+   reference reported `Resolved`, a probe page wrote and read across a container restart, and the
+   first migration was applied on the boot path to a database that had zero tables. (That probe page
+   was retired by `S-01` on 2026-09-12, once an auth cookie surviving a restart became the stronger
+   version of the same check.) Owner: user.
    Was blocking: `F-02`, and through it every persisting slice.
 2. **Which model provider generates the candidates?** No client, package, or configuration exists.
    Note that low request volume does not imply low cost — generation is expensive per request
    regardless of how rarely it occurs. Owner: user — to be resolved downstream as course-work.
    Block: `S-02`. Non-blocking by the user's explicit decision.
-3. **How long is the inactivity window before a signed-in session expires?** Carried verbatim from the
-   PRD's `## Open Questions`. Owner: user. Block: `S-01`. The PRD classes it as a planning detail
-   rather than a product decision, so it does not gate the roadmap.
+3. ~~**How long is the inactivity window before a signed-in session expires?** Carried verbatim from
+   the PRD's `## Open Questions`.~~ **Resolved 2026-09-12 in `S-01`: seven days, sliding.**
+   `ConfigureApplicationCookie` sets `ExpireTimeSpan` to seven days with `SlidingExpiration` true, so
+   the window renews on activity rather than counting from sign-in. **Sliding is the load-bearing
+   half, not the number.** This product has no password recovery by decision, so a forgotten password
+   is a permanently dead account: an expiry that signs an active learner out buys no security worth
+   having and risks costing them the one credential they hold. Seven days is then chosen for the
+   usage the PRD describes — a learner who reads something worth carding every few days should not
+   meet a login screen each time — and it is short enough that a stolen cookie on a shared machine
+   does not outlive the person who left it there. The value is asserted by a test rather than left to
+   the comment beside it, because a later agent restoring Identity's defaults would otherwise be a
+   silent change. Owner: user. Was blocking: `S-01`, non-blocking by the PRD's own classification.
 4. ~~**Should the application keep its own HTTPS redirect, or rely entirely on the platform's
    HTTPS-only enforcement?**~~ **Resolved 2026-09-08 in `F-01`:** rely entirely on the platform.
    `app.UseHttpsRedirection()` was removed from `Program.cs`, deliberately rather than as a

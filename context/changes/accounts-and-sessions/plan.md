@@ -352,14 +352,14 @@ persistence fail in different places, and a passing deploy is not evidence of ei
 
 - `az bicep build --file infra/main.bicep` compiles with no `BCP` diagnostic
 - `az deployment group what-if` run, snapshots taken before and after with `az appservice plan show`, `az webapp config show` and `az webapp config appsettings list`, and the post-deploy diff reconciled against the prediction — regardless of how the prediction looked
-- `az keyvault key show` returns the new key with an enabled status
+- ~~`az keyvault key show` returns the new key with an enabled status~~ **Superseded during Phase 1 — do not run this.** The operator holds `Key Vault Secrets Officer`, which confers nothing on a *key*, so this data-plane read answers `(Forbidden)` indistinguishably from a missing key. Substituted with the ARM control-plane read; see `### Phase 1 finding: the operator cannot run the plan's own key-verification command` in `change.md`
 - **The check is proven before it is trusted**: the `az rest` GET against `providers/Microsoft.Authorization/roleAssignments` first returns the **existing** `Key Vault Secrets User` assignment for the site principal, which `infra/main.bicep` already declares as `kvSecretsUser`. An empty result here means the command is wrong, not that a role is missing — the failure `lessons.md` records under "Prove the check before trusting the result"
 - Only then: the same command returns the new `Key Vault Crypto User` assignment for the same principal. Not `az role assignment`, every command of which is unusable on this subscription
 - `az bicep build` shows the template declares a key-identifier `output` alongside its existing five
 - The key-identifier app setting is present on `tenexcards-ka` and its value is **byte-identical to that deployment output**, compared directly rather than eyeballed, and read back with `az webapp config appsettings list` **before the encrypting build is merged**
 - `dotnet build` succeeds with the new package at its pinned version
 - The startup log for the boot that mints the new key does **not** contain `No XML encryptor configured`
-- The new `DataProtectionKeys` row's `Xml` contains an `<encryptedKey>` element and no readable `<value>` element
+- ~~The new `DataProtectionKeys` row's `Xml` contains an `<encryptedKey>` element and no readable `<value>` element~~ **Half superseded during Phase 1 — the `<value>` half is wrong.** `<value>` appears in *both* forms — as the master key when plaintext, as the ciphertext payload nested inside `<encryptedKey>` when encrypted — so asserting its absence reports a false failure on a correct row and invites re-running an irreversible deletion that already worked. Assert instead on the presence of `AzureKeyVaultXmlDecryptor` and the absence of `<masterKey>` and of the literal comment `Warning: the key below is in an unencrypted form.`; see the Phase 1 finding on `<value>` in an encrypted key row, in `change.md`
 
 #### Manual Verification:
 
@@ -558,6 +558,11 @@ confirmation surface
 
 **Intent**: The three FR-001 through FR-003 surfaces, written rather than scaffolded, so nothing
 forbidden exists to be routed to.
+
+> **Implemented differently — only two of the three are pages.** Sign-out became a POST endpoint
+> (`MapIdentityLogout()`), not a logout confirmation page, because clearing the cookie is a
+> response-header operation a component action cannot perform. See the Phase 3 finding on sign-out
+> in `change.md`. The heading above names three *surfaces*, not three pages.
 
 **Contract**: Statically rendered — **no `@rendermode`** — using the `EditForm Model="…"
 method="post" FormName="…"` pattern `DbCheck.razor` already proves, with no `<AntiforgeryToken />`
@@ -1104,14 +1109,14 @@ only because no account exists yet, which is the reason that phase is first.
 
 - [x] 1.1 az bicep build compiles main.bicep with no BCP diagnostic — 874cd61
 - [x] 1.2 what-if run, snapshots taken, and the post-deploy diff reconciled against the prediction — 874cd61
-- [x] 1.3 az keyvault key show returns the new key, enabled — 874cd61
+- [x] 1.3 The key exists and is enabled — **verified by the ARM control-plane read, not by `az keyvault key show`**, which the operator cannot run (Phase 1 finding) — 874cd61
 - [x] 1.4 The az rest roleAssignments GET first returns the existing Key Vault Secrets User assignment, proving the command works — 874cd61
 - [x] 1.5 The same command then returns the new Key Vault Crypto User assignment for the site principal — 874cd61
 - [x] 1.6 The template declares a key-identifier output alongside its existing five — 874cd61
 - [x] 1.7 The key-identifier app setting is byte-identical to that deployment output, compared directly, before the encrypting build is merged — 874cd61
 - [x] 1.8 dotnet build succeeds with the Data Protection Key Vault package pinned — 874cd61
 - [x] 1.9 The key-minting boot's log does not contain No XML encryptor configured — 874cd61
-- [x] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element — 874cd61
+- [x] 1.10 The new DataProtectionKeys row is ciphertext — **verified by AzureKeyVaultXmlDecryptor present and masterKey absent, not by the absence of a value element**, which is present in both forms (Phase 1 finding) — 874cd61
 
 #### Manual
 

@@ -11,7 +11,8 @@ platform research and the risk register are in `context/foundation/infrastructur
 are written from there: `context/`, `infra/`, `scripts/` and `.github/` are siblings of
 `TenExCards/`, not children of it. **`TenExCards/` is a solution folder, not the project folder**
 — alongside this file it holds `TenExCards.slnx` and two project subfolders one level deeper:
-`TenExCards/TenExCards/` (the product code) and `TenExCards/TenExCards.Tests/` (`S-01`). Product
+`TenExCards/TenExCards/` (the product code) and `TenExCards/TenExCards.Tests/` (`S-01`, which
+carries its own `AGENTS.md` holding the testing rules). Product
 code is named relative to that inner folder — one level below this file's own directory —
 `Program.cs` means `TenExCards/TenExCards/Program.cs` and `Components/Pages/Home.razor` means
 `TenExCards/TenExCards/Components/Pages/Home.razor`. That is also why `dotnet` needs
@@ -25,63 +26,75 @@ scripts, older dated records) still resolves — check whether it predates the `
 `context/foundation/roadmap.md` alongside the change-id that implements it. Look one up there
 rather than inferring it from context. Two recur below because they own live decisions:
 **`F-02` (`persistence-spine`)**, which landed persistence on 2026-09-10, and **`S-01`
-(`accounts-and-sessions`)**, the next slice — it brings Identity, and it owns several things
-this file marks as open or unverified.
+(`accounts-and-sessions`)**, which landed the account boundary, the encrypted key ring and the
+test project on 2026-09-12.
 
-## The scaffold is not the target
-
-**Most of this section describes a transient state** and goes stale the moment it is acted on.
-Blazor Server landed on 2026-09-08; what remains is the rest. When `S-01` puts Identity in place,
-delete the scaffold-state parts: the missing-pieces list immediately below, and the deletion list
-at the end of the section.
-
-**Two paragraphs here are not scaffold state and must survive that edit** — the persistence
-decision and the budget rule, immediately after the missing-pieces list. The provider choice, the
-"ask before a second store" rule and the provisioned-over-auto-pausing rule outlive the scaffold
-entirely; a section-wide delete would silently drop them, and the provider question would be
-re-opened by the next agent that needed a store. Move them, don't delete them: persistence to
-`### Persistence: two databases, one server, and what no template recreates`, and the budget rule
-to `## Budget Posture` in `context/foundation/infrastructure.md`, which already holds its full
-reasoning.
+## What is wired, and what is not
 
 The project is a Blazor Web App with **per-page interactivity**: pages are static-rendered unless
-they carry `@rendermode InteractiveServer`. `Components/Pages/CircuitCheck.razor` is the worked
-example of that annotation and exists only to prove the circuit is live; `S-01` deletes it. Still
-missing:
+they carry `@rendermode InteractiveServer`. That is not an aesthetic choice — it is what lets the
+Identity pages sign a learner in without a carve-out, because `SignInManager` writes cookies to the
+HTTP response and a circuit cannot. Those pages therefore carry **no** `@rendermode`, and neither
+does anything else that posts a form.
 
-- **ASP.NET Core Identity** for email + password accounts. Not scaffolded.
-- An **LLM client** for generation. Not scaffolded; no package or configuration exists.
+**Accounts are live** as of 2026-09-12 (`S-01`, change `accounts-and-sessions`): ASP.NET Core
+Identity for email + password, on `IdentityUserContext<ApplicationUser>` — the **role-free** base,
+chosen so that "never add roles" below is structural rather than conventional, since `AddRoles<>`
+fails against it by design. Register and sign in are two hand-written statically rendered pages
+under `Components/Account/Pages/`, not the template's 47 files; `## Never do these` says what must
+not be added back. **Sign-out is not a third page** — it is a POST endpoint, `MapIdentityLogout()`
+in `Components/Account/IdentityEndpoints.cs`, because clearing the cookie is a response-header
+operation a component action cannot perform and a `GET` sign-out is trivially triggerable
+cross-site. `Components/Account/` itself holds no routable pages — only that endpoint and the four
+support types borrowed from the template: a redirect manager, a revalidating auth-state provider,
+and two non-routable components. Authorization defaults to **protected**: a fallback policy
+requires an authenticated user,
+so a new page is gated unless it says `[AllowAnonymous]` — and some endpoints need that marker
+explicitly, see `### Authorization defaults to protected`.
 
-Adding Identity and the LLM client is expected work, not scope creep. **Persistence is decided and
-live** as of 2026-09-10 (`F-02`, change `persistence-spine`): **EF Core 10.0.12 against Azure SQL**, S0
-provisioned, in `polandcentral` beside the app. Two databases on one logical server — see
-`## Deployment` for which is which and why that split is load-bearing rather than tidy. Do not
-re-open the provider question; do ask before adding a *second* store.
+Still missing: an **LLM client** for generation. Not scaffolded; no package or configuration
+exists. `S-02` brings it, and adding it is expected work rather than scope creep.
 
-The rule that picked it is **the cheapest option that removes a risk or saves real time —
-not the cheapest option.** The subscription is a Free Trial with `spendingLimit: On`, so the
-ceiling is a hard stop rather than a bill and a paid tier inside the credit costs nothing extra;
-unspent credit expires worthless. Prefer a provisioned tier over an auto-pausing one — the first
-query after a pause can exceed the whole 2s acknowledgement budget. Out of scope either way:
-anything whose *ongoing* cost matters after the trial. Full reasoning in
-`context/foundation/infrastructure.md` under `## Budget Posture`.
+### Authorization defaults to protected
 
-**`S-01`'s deletion list is longer than one page.** Both proof-of-life surfaces go, and one of them
-is reachable from two places:
+`Program.cs` sets an authorization **fallback policy** requiring an authenticated user. A fallback
+policy applies to every endpoint carrying no authorization metadata, and this pipeline
+endpoint-routes more than page components — so the rule has a trap in it:
 
-- `Components/Pages/CircuitCheck.razor`, its nav entry in `Components/Layout/NavMenu.razor`,
-  **and** the in-body link on `Components/Pages/Home.razor`.
-- `Components/Pages/DbCheck.razor`, its single nav entry — also in
-  `Components/Layout/NavMenu.razor`, where a comment marks it as `/db-check`'s only entry point —
-  the `SpineProbe` entity in `Data/SpineProbe.cs`, its `DbSet` on `Data/AppDbContext.cs`, and its
-  `SpineProbes` table (a migration that drops it — forward-only, like every other).
+- **Page components** are gated unless they carry `[AllowAnonymous]`. Four surfaces do: `Home`,
+  `Error`, `NotFound`, and the Identity pages as a folder. Add nothing else without a reason.
+  **The Identity pages inherit theirs from `Components/Account/Pages/_Imports.razor`, which is the
+  trap**: a new page dropped into that folder is anonymous the moment it exists, without anyone
+  adding it to any list or writing an attribute anyone would review. A page belongs there only if
+  an unauthenticated learner must reach it; anything else goes under `Components/Pages/`.
+- **`MapStaticAssets()` carries `.AllowAnonymous()`, and removing it breaks the site silently.**
+  Without it every stylesheet and script `302`s to the login path, and the page renders unstyled.
+  **`scripts/verify_deploy.py` cannot catch this**: it sends no cookies and follows redirects, so a
+  gated asset resolves `302 → /Account/Login → 200` and is recorded as a pass. It asserts status,
+  never content type. Verify by checking that each asset answers `text/css` or a JavaScript type
+  rather than `text/html`.
+- **`AddInteractiveServerRenderMode()`'s builder is deliberately left un-anonymous.**
+  `MapRazorComponents<App>()` returns one builder covering *every* page route, and an
+  `IAllowAnonymous` marker anywhere in an endpoint's metadata short-circuits authorization for it —
+  so marking that builder anonymous would exempt every future gated page, not just the circuit hub.
+  It is unnecessary today because no anonymous page uses `@rendermode InteractiveServer`. Revisit
+  the first time one does.
+- **`MapIdentityLogout()` carries `.AllowAnonymous()`, and it is not an oversight that sign-out is
+  reachable to the signed-out.** Posting it twice, or after the cookie has already expired, must
+  end at the home page rather than `302` to login — a logout that redirects to a login form reads
+  as a failed sign-out and invites the learner to try again. It is mapped **after**
+  `MapRazorComponents<App>()`, per the .NET Identity template's own convention for account
+  endpoints.
 
-Both nav entries live in `Components/Layout/NavMenu.razor`; it is the file this list is easiest to
-miss, because it is the only one holding something for *both* surfaces.
+**Exactly two `.AllowAnonymous()` calls exist in the pipeline** — static assets and sign-out — and
+the render-mode bullet above is the one place that deliberately refuses a third. If you find
+yourself adding one, record here which of the two it resembles and why the render-mode reasoning
+does not apply to it.
 
-`DbCheck.razor` is statically rendered on purpose and carries a comment saying so. Do not add
-`@rendermode` to it: the antiforgery token its SSR form emits is what `S-01` needs to verify that
-Data Protection keys survive a restart.
+An unauthenticated request for a gated route must produce a **`302` to the login path, never a
+`401`**: `verify_deploy.py` treats `401` as a hard failure and `403` as transient, burning the whole
+warm-up budget before failing with misleading diagnostics. Registering the cookie handler as the
+default scheme with a `LoginPath` is what makes the challenge a redirect.
 
 ## Never do these
 
@@ -100,7 +113,8 @@ Product:
   plus its candidates there until triage ends. B1 gives 1.75 GB total and there is no
   back-pressure: the ceiling arrives as OOM restarts that look like random disconnects, and every
   restart drops every circuit. Enforce the passage-length bound *before* generation begins.
-- **Never use FluentAssertions.** Assertions use AwesomeAssertions; see `## Testing`.
+- **Never use FluentAssertions.** Assertions use AwesomeAssertions; see
+  `TenExCards.Tests/AGENTS.md`.
 
 Deployment — each bullet is the rule **and the consequence that enforces it**, because a
 prohibition without its failure mode is one an agent talks itself out of. `## Deployment` holds
@@ -124,24 +138,31 @@ how to tell a false positive from a real one. A fact goes in one or the other, n
   `context/deployment/deploy-plan.md`.
 - **Never provision the F1 App Service tier.** It caps WebSockets at five connections and has no
   Always On. B1 Linux is the floor.
-- **Never remove Data Protection key persistence, and never assume it covers encryption.** Keys are
-  not persistent by default; `F-02` fixed that — `Program.cs` calls
-  `AddDataProtection().PersistKeysToDbContext<AppDbContext>()`, so the ring lives in the
-  `DataProtectionKeys` table and survives a restart. **`S-01` verifies this rather than implementing
-  it**, with the check that can actually fail: render `/db-check`, restart the container, then submit
-  the *already-rendered* form. It must be accepted, not rejected with `400`. Confirming that the key
-  count did not change is necessary but not sufficient — a ring with no reason to rotate looks
-  identical to a working one.
-  **The keys are stored UNENCRYPTED** (`DataProtectionKeys.Xml` is plaintext), and ASP.NET Core says
-  so once — on the boot that mints a key, never again: `No XML encryptor configured`. Today that only
-  buys token forgery for anyone with database read access; once `S-01` lands Identity the same ring
-  signs auth cookies and the same access becomes session forgery. Encryption at rest
-  (`ProtectKeysWithAzureKeyVault`) is **open and owned by `S-01`** — do not read the persistence
-  sentence above as covering it.
+- **Never remove Data Protection key persistence or its encryption. They are two guarantees, not
+  one, and each fails differently.** Keys are neither persistent nor encrypted by default.
+  `Program.cs` calls `AddDataProtection().PersistKeysToDbContext<AppDbContext>()` (`F-02`, so the
+  ring lives in the `DataProtectionKeys` table and survives a restart) and then chains
+  `.ProtectKeysWithAzureKeyVault(...)` outside Development (`S-01`, so the row is ciphertext). That
+  ring now signs **auth cookies**, so losing either property logs every learner out or hands session
+  forgery to anyone with database read access.
+  **The guard around the encryption call is deliberate** — local development points at
+  `sqldb-tenexcards-dev`, whose ring protects nothing, and requiring vault key permissions on a
+  development machine would widen access. Do not remove it as an inconsistency.
+  **Both were verified on 2026-09-12, and neither verification is a deploy reporting success.**
+  Persistence: sign in, restart the container, reuse the pre-restart cookie — the session must
+  still be signed in. Encryption: the single key row's `Xml` must carry `AzureKeyVaultXmlDecryptor`
+  and must **not** carry `<masterKey>` or the literal comment
+  `Warning: the key below is in an unencrypted form.` Do **not** test for `<value>`; it appears in
+  both forms, nested inside `<encryptedKey>` when correct, so matching it reports a false failure on
+  a correctly encrypted row. Counting key rows is also not the verdict — a ring with no reason to
+  rotate looks identical to a working one.
+  `No XML encryptor configured` is logged only on the boot that **mints** a key, never again, so its
+  absence from a log proves nothing unless that boot minted one.
 - **Never set `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false`, and never add `ASPNETCORE_HTTPS_PORT`.**
   Neither is needed, and setting the first to `false` is not a no-op: it **silently** stops HSTS —
-  no warning, no log line, no failing request — and once Identity lands it also strips `Secure`
-  from auth cookies under the default `CookieSecurePolicy.SameAsRequest`. Mechanism and the `307`
+  no warning, no log line, no failing request — and, since `S-01` landed accounts, it also strips
+  `Secure` from the auth cookie under the default `CookieSecurePolicy.SameAsRequest`, handing every
+  live session to anyone on the path. Mechanism and the `307`
   loop: `### HTTPS: what enforces it, and what must never be set`.
 - **Never run `az deployment group create` with `--mode Complete`.** It deletes every resource
   in the group absent from the template — the plan and web app included. Incremental is the
@@ -260,7 +281,14 @@ Deliberately **out of scope** for the pipeline, so each is still human work:
 
 ### Persistence: two databases, one server, and what no template recreates
 
-Provisioned by `F-02` on 2026-09-10, all declared in `infra/main.bicep`:
+**Persistence is decided and live** as of 2026-09-10 (`F-02`, change `persistence-spine`): **EF Core
+10.0.12 against Azure SQL**, S0 provisioned, in `polandcentral` beside the app. Two databases on one
+logical server — below is which is which and why that split is load-bearing rather than tidy. Do not
+re-open the provider question; do ask before adding a *second* store. The rule that picked it is in
+`context/foundation/infrastructure.md` under `## Budget Posture`, which is its only home.
+
+Provisioned by `F-02` on 2026-09-10 and extended by `S-01` on 2026-09-12, all declared in
+`infra/main.bicep`:
 
 | Resource | Name | Notes |
 | --- | --- | --- |
@@ -268,6 +296,12 @@ Provisioned by `F-02` on 2026-09-10, all declared in `infra/main.bicep`:
 | App database | `sqldb-tenexcards` | **S0 provisioned** — not auto-pausing, deliberately |
 | Development database | `sqldb-tenexcards-dev` | Basic; never on a user path |
 | Key Vault | `kv-tenexcards-plc` | RBAC, purge protection **off**, 7-day retention |
+| Vault key | `dataprotection-key` | RSA; wraps the Data Protection ring (`S-01`) |
+
+The site's managed identity holds **two** vault-scoped role assignments, both declared in the
+template, and they are not duplicates: `Key Vault Secrets User` for the connection-string secret
+(`F-02`) and `Key Vault Crypto User` for the key above (`S-01`). Secrets and keys are separate
+data-plane surfaces with separate roles — a secrets role confers nothing on a key.
 
 **Local development points at `sqldb-tenexcards-dev`, never at the app's database.** This is not a
 convention — it is the reason two databases exist. `Database.MigrateAsync()` runs on the boot path, so a
@@ -294,6 +328,23 @@ rebuilt by hand — `az deployment group create` will not do it:
 3. The development-machine firewall rule (`dev-machine-krzychu`). **Re-add it when your home IP
    changes** — set with `az sql server firewall-rule create`, deliberately not in the template
    because it is a property of where you are sitting.
+
+**How the Data Protection key identifier reaches the app, and why it is not a Key Vault reference.**
+The template owns the **key**; the app setting `DataProtection__KeyIdentifier` is only the **pointer**
+the app reads it through, and app settings are the sole channel for that (`appSettings` stays out of
+the template — see `## Never do these`). Its value is the versionless key URI, and it must be taken
+from the template's own `dataProtectionKeyUri` output rather than read off a console:
+`az deployment group show -g rg-tenexcards-plc -n <deployment> --query properties.outputs`. Sourcing
+it anywhere else puts the key's name in two places with nothing linking them, and a rename would
+then surface at the first rendered form rather than at boot. Unlike the connection string this is a
+plain pointer, not a `@Microsoft.KeyVault(...)` reference, so it may be passed inline — but never in
+`appsettings*.json`. CI never sets it, so it must exist **before** a build that reads it is merged;
+the container otherwise does not serve at all.
+
+**`az keyvault key show` is not the way to check that the key exists** — it is a *data-plane* read, and
+the operator account holds `Key Vault Secrets Officer`, which confers nothing on a key. It answers
+`(Forbidden)`, indistinguishable from a missing key. Use the ARM control-plane read instead:
+`az rest --method get --url ".../Microsoft.KeyVault/vaults/kv-tenexcards-plc/keys/dataprotection-key?api-version=2024-11-01"`.
 
 **Checking that the Key Vault reference resolves.** The app setting
 `ConnectionStrings__DefaultConnection` holds a versionless reference (note the **trailing slash**
@@ -323,9 +374,9 @@ a Blazor circuit's state lives in memory on exactly one instance. This cannot ma
 worker, so it surfaces first under load. Test affinity with cookies disabled before trusting it.
 
 **Data Protection keys are not a scaling concern and never were** — an ephemeral ring broke
-antiforgery at **one** instance, on every restart, and `F-02` closed that on 2026-09-10. See
-`## Never do these` for the rule, what `S-01` still owes it, and why encryption at rest did not
-follow. What remains genuinely scaling-shaped is ARR affinity above, not the keys.
+antiforgery at **one** instance, on every restart. `F-02` closed persistence on 2026-09-10 and
+`S-01` closed encryption at rest on 2026-09-12; see `## Never do these` for both rules and how each
+is actually verified. What remains genuinely scaling-shaped is ARR affinity above, not the keys.
 
 ### HTTPS: what enforces it, and what must never be set
 
@@ -378,29 +429,16 @@ Nothing in the output separates the two. Snapshot (`az appservice plan show`,
 
 ## Testing
 
-No test project exists. Create `TenExCards.Tests` (xUnit) with the first feature that touches
-generation, triage, or **account-scoped** persistence — that is `S-01` — and put the test in the
-same change as the code.
+**`TenExCards.Tests` exists** (xUnit, landed by `S-01` on 2026-09-12) and **gates the deploy** — the
+`Test` step in `.github/workflows/deploy.yml` runs before `Publish`, so a failing test means nothing
+ships. That was verified by deliberately failing one and reading the run's *step list*: every step
+after `Test` showed skipped, not merely a red run.
 
-`F-02` touched persistence first and deliberately created no test project. Its reasoning, so it is
-not mistaken for an oversight: the rule below is to test the *deterministic rules*, and `F-02`
-contains none. A probe-entity round-trip is an integration test against a live database, and a
-`DbContext`-registration test mostly re-tests EF Core. What `F-02` has instead is executable
-verification recorded in `context/changes/persistence-spine/` — the restart-survival check being
-the one that can actually fail.
-**Move this section to `TenExCards.Tests/AGENTS.md` once that project exists** — these rules
-belong next to the tests. Leave the FluentAssertions bullet in `## Never do these`.
+**The rules for writing tests live next to the tests, in `TenExCards.Tests/AGENTS.md`.** Read that
+file before adding one. Only the FluentAssertions prohibition stays here, in `## Never do these`,
+because it is a licensing rule rather than a testing rule.
 
-Assertions use **AwesomeAssertions**. FluentAssertions v8 moved to a paid commercial licence;
-AwesomeAssertions is the Apache-2.0 fork of v7 with the same API, so the training-data reflex
-compiles cleanly and introduces a licensing problem silently.
-
-Test the deterministic rules, never the model's prose. Stub the LLM client — it is the only
-test double — and assert on what the code does with a response: over-length submissions are
-refused before generation begins, duplicate candidates are dropped, each candidate is triaged
-exactly once, and every query is scoped to the owning account. Card quality is judged by the
-learner at triage, not by a test; an assertion against generated card text is a flaky test,
-not a quality gate.
+Ship the test in the same change as the code it asserts.
 
 ## Conventions
 

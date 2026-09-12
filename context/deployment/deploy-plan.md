@@ -533,6 +533,15 @@ Deployment `10dd25fc-9cac-4c10-9f90-4f5c7b818786` — `RuntimeSuccessful`, 1/1 i
 The archive was **not** hand-built. `F-03` landed `scripts/pack.py` and `scripts/verify_deploy.py`
 in parallel with this change, and this deploy is the first to use them:
 
+> **The last line below is SUPERSEDED — do not run it.** `/db-check` was deleted on 2026-09-12 by
+> `S-01` phase 5, along with `/circuit-check`, once the auth-cookie restart-survival check replaced
+> what it was kept for. The route now `404`s, and `404` is **not** in `verify_deploy.py`'s transient
+> set — so it fails immediately, with wording saying the app answered and this is not a warm-up
+> problem. That is a red which reads like a broken deploy. The **bare** `python
+> scripts/verify_deploy.py` on the line above it is still correct and is what CI runs. The block is
+> kept unedited because it records what was run on 2026-09-10; note that its `dotnet publish` path
+> also predates the `S-01` solution-folder restructure.
+
 ```powershell
 dotnet publish TenExCards/TenExCards.csproj -c Release
 python scripts/pack.py            # 77 entries, 27,676,619 bytes — all four assertions PASS
@@ -800,9 +809,16 @@ python scripts/verify_deploy.py
 ```
 
 **Second choice — past the window, or the artifact store is unavailable:** rebuild from the commit.
-`git checkout <sha> -- TenExCards/`, `dotnet publish TenExCards/TenExCards.csproj -c Release`,
+`git checkout <sha> -- TenExCards/`, `dotnet publish TenExCards/TenExCards/TenExCards.csproj -c Release`,
 `python scripts/pack.py`, then the same `az webapp deploy` above. This is why `pack.py` had to stay
 runnable on the development machine rather than living inside the workflow.
+
+> **Path corrected 2026-09-12.** That `dotnet publish` argument read
+> `TenExCards/TenExCards.csproj` until `S-01` phase 4 made `TenExCards/` a solution folder and moved
+> the project one level deeper. Corrected rather than left as history because this is a **runnable
+> rollback procedure**, not a dated measurement — it would fail on the day it is needed most. A
+> restore from a **retained artifact** (first choice, above) is unaffected: it never rebuilds.
+> Everything else in these records keeps its original paths on purpose.
 
 **Third choice — the local zips**, now demoted to last resort:
 `TenExCards/bin/publish-shell-rollback.zip` (497,970 bytes, pre-EF) and
@@ -811,3 +827,164 @@ runnable on the development machine rather than living inside the workflow.
 **None of these reverse a migration.** `InitialSpine` is applied to `sqldb-tenexcards`; redeploying
 older code leaves those tables in place. The archive is the rollback path for *code*. There is no
 rollback path for *schema*, by design — migrations here are forward-only.
+
+---
+
+# Deployment record — executed 2026-09-12 — accounts and sessions
+
+`S-01` (`accounts-and-sessions`). Five deploys, one per phase, **all through the pipeline** — this
+is the first change deployed entirely by pushing to `main`, with no hand-built archive at any point.
+The infrastructure deployment and the app setting were the only human work, exactly as
+`### A push to main deploys` in `TenExCards/AGENTS.md` says they must be.
+
+The ordering across those five is the design, and it is worth reading before reusing any of it:
+the key-ring work went **first, while no account existed**, because closing the exposure means
+discarding a key and that invalidates every outstanding token. After phase 3 it would have signed
+every learner out.
+
+| Phase | Commit | What deployed |
+| --- | --- | --- |
+| 1 | `874cd61` | Key ring encrypted at rest |
+| 2 | `175097f` | Identity tables only — no UI, no DI, no authorization |
+| 3 | `606e084` | Register, sign in, sign out; authorization defaults to protected |
+| 4 | `dbd121e` | `TenExCards.Tests` and the CI test gate |
+| 5 | `9fccf42` | `/circuit-check` and `/db-check` retired, `SpineProbes` dropped |
+
+## What was provisioned
+
+Declared in `infra/main.bicep`, deployed as `s01-keyring-20260912-111827`, `Succeeded`,
+**Incremental** (never `--mode Complete`):
+
+| Resource | Name / id | Notes |
+| --- | --- | --- |
+| Vault key | `dataprotection-key` | RSA 2048, `keyOps: [wrapKey, unwrapKey]`, enabled |
+| Role assignment | `22ceb7ae-9e57-5d50-9bc6-96b673955633` | **Key Vault Crypto User** → the site's identity, vault scope |
+
+The second assignment was necessary because the site already held only `Key Vault Secrets User`.
+**Secrets and keys are separate data-plane surfaces with separate roles** — a secrets role confers
+nothing on a key. The same split bit the *operator* account during verification; see the false
+positive below.
+
+One app setting, set with `az webapp config appsettings set`, **before** the build that reads it was
+merged:
+
+```
+DataProtection__KeyIdentifier=<the deployment's dataProtectionKeyUri output>
+```
+
+Unlike the connection string this is a **plain pointer, not a Key Vault reference** — safe to pass
+inline. Its value was read from `az deployment group show -g rg-tenexcards-plc -n
+s01-keyring-20260912-111827 --query properties.outputs` and compared byte-for-byte against the app
+setting, rather than eyeballed. That output (`dataProtectionKeyUri`, the sixth the template declares)
+exists precisely so the pointer cannot drift from the key it points at.
+
+**The ordering here is the whole point.** App settings are deliberately outside the pipeline while a
+push to `main` *is* a production deploy, so merging the encrypting build first would mean
+`new Uri(null)` during service configuration — the container does not serve, on a tier with no
+deployment slots, and the only way out is another push. The setting is inert to a build that does
+not read it, so setting it early costs nothing and removes the window entirely.
+
+## Discarding the plaintext key — the irreversible step
+
+| | Before | After |
+| --- | --- | --- |
+| `Id` | `1` | `2` |
+| `FriendlyName` | `key-f3bfba0e-…` | `key-73a4c584-…` |
+| `LEN(Xml)` | 887 | 1,942 |
+| Key material | plaintext | wrapped with `dataprotection-key` |
+
+`DELETE FROM DataProtectionKeys` reported 1 row affected and 0 remaining. The growth to 1,942 bytes
+is the Key Vault envelope — `kid`, wrapped key, IV, ciphertext.
+
+**The restart between the delete and the next form is load-bearing and must not be dropped as
+redundant.** Data Protection resolves the ring once and caches it (`KeyRingRefreshPeriod` defaults to
+24 hours), so without a restart the app keeps using a key that no longer exists in the database: the
+form succeeds, nothing is minted, and three separate checks then fail for a reason none of them
+names.
+
+## Migrations — two, in two phases, two deploys
+
+Both forward-only, both on the boot path, both applied to `sqldb-tenexcards-dev` first:
+
+```
+20260912101411_AddIdentity      (phase 2) — AspNetUsers, AspNetUserClaims,
+                                            AspNetUserLogins, AspNetUserTokens
+20260912135900_DropSpineProbes  (phase 5) — drops SpineProbes, nothing else
+```
+
+`AddIdentity` creates **no role tables**: the context derives from `IdentityUserContext<TUser>`
+rather than `IdentityDbContext<TUser>`, which makes "never add roles" structural under forward-only
+migrations rather than conventional. It touched neither `DataProtectionKeys` — which would have
+discarded the ring phase 1 had just encrypted — nor `SpineProbes`.
+
+Each deploy's startup log reported applying exactly one pending migration by name, then `Migrations
+applied successfully`.
+
+## what-if reconciliation
+
+Snapshotted before and after and diffed regardless of how the prediction looked, per the standing
+rule. **Nothing was predicted as `- Delete`, and nothing was deleted**; the `appSettings` snapshot is
+byte-identical across the deploy, so `ConnectionStrings__DefaultConnection` survived — the hazard the
+template's `appSettings` omission exists to prevent. Both intended creates *were* predicted, which
+is the first clean prediction on this template; recorded because it is a first, not because it makes
+the next one trustworthy. The line-by-line table lives in
+`../changes/accounts-and-sessions/change.md` and is not copied here.
+
+Two notes for whoever reads that table next. `properties.freeOfferExpirationTime` was **already
+`null`** before this deployment — cleared on 2026-08-31 — so this run is not evidence that the
+destructive behaviour recorded against it has stopped. And `siteConfig.localMySqlEnabled` and
+`siteConfig.netFrameworkVersion` were phantoms for the **fourth** time.
+
+## Looks like a failure but is not — three new cases
+
+**1. A `500` on `/db-check` in the app-setting restart window.** Applying
+`DataProtection__KeyIdentifier` restarts the app, and the first request into that window logged a
+genuine SQL error: *"A connection was successfully established with the server, but then an error
+occurred during the login process."*
+
+The timing is a perfect match for the hazard `infra/main.bicep` warns about — supplying a
+`sqlAdminPassword` differing from the vault's silently rotates the server admin password, breaking
+the app at its *next restart*. Three things rule it out: the documented symptom is
+`Login failed for user 'tenexadmin'` (a credential rejection, not a failure *during* the login
+process); the password came from the vault, so the deployment re-asserted the same value; and
+**it did not persist** — eleven seconds later the new container connected cleanly. It was the old
+container being torn down mid-request. **Retry before diagnosing; a rotated password does not heal
+on the following boot.**
+
+**2. `az keyvault key show` returns `(Forbidden)` for the operator.** Not a missing key and not a
+broken deployment. That command is a *data-plane* read, and the operator holds `Key Vault Secrets
+Officer` — a secrets role, which confers nothing on a key. Its output is indistinguishable from the
+failure it appears to report, the same shape as the `az role assignment` breakage recorded on
+2026-09-10. Use the ARM control-plane read instead, which Contributor already covers:
+
+```bash
+az rest --method get --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/rg-tenexcards-plc/providers/Microsoft.KeyVault/vaults/kv-tenexcards-plc/keys/dataprotection-key?api-version=2024-11-01"
+```
+
+Proven before it was trusted: run against the keys *collection* before the deployment it returned
+`{"value": []}` — a `200` with an empty list — establishing that the command works and the vault held
+zero keys, so an empty result was readable as a verdict rather than as a broken command. Granting the
+operator `Key Vault Crypto Officer` was declined: an imperative operator role assignment outside the
+template, buying nothing the ARM read does not.
+
+**3. `<value>` is present in a correctly ENCRYPTED key row.** The obvious ciphertext check —
+`Xml LIKE '%<value>%'` — **reports a false positive on a correct row**. `<value>` appears in both
+forms: the master key itself when plaintext, the ciphertext payload nested inside `<encryptedKey>`
+when encrypted. Reading it as a failure would have led to re-running an irreversible deletion that
+had already worked. Assert instead on the absence of `<masterKey>` and of the literal comment
+`Warning: the key below is in an unencrypted form.`, which the plaintext writer always emits.
+
+**Still reproducing from earlier records:** the `BadImageFormatException` during lazy route-table
+warm-up appeared again in the phase 5 startup log. Checked against the archive before being treated
+as a regression — the identical exception sits in the 2026-09-10 log, two days earlier, and both
+boots are recorded by App Service's own health check as `success`. Pre-existing platform artifact.
+
+## What this change did NOT close
+
+- **Branch protection on `main` and the CI principal's `Contributor` scope.** Unchanged and still
+  open. `S-01` closed a security row in the risk register, which is exactly the kind of thing that
+  invites reading the deployment trust boundary as settled. It is not.
+- **Database read access.** Encrypting the key ring removed *session forgery* from what that access
+  buys. From phase 2 onward the same access returns every `AspNetUsers.PasswordHash`. What carries
+  that residual risk is the sixteen-character password minimum over PBKDF2-HMAC-SHA512, not the key
+  ring — see the risk register in `../foundation/infrastructure.md`.

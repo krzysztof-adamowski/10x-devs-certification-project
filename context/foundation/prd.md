@@ -279,9 +279,19 @@ Non-functional non-goals:
 
 ## Open Questions
 
-1. **Session inactivity window** — sessions expire after a period of inactivity, but the
+1. ~~**Session inactivity window** — sessions expire after a period of inactivity, but the
    length of that period is not fixed. Owner: user. A planning detail rather than a product
-   decision; does not block the PRD.
+   decision; does not block the PRD.~~ **Decided 2026-09-12 while implementing `S-01`
+   (`accounts-and-sessions`): seven days, sliding** — the window renews on activity rather than
+   counting from sign-in. The sliding half is the reasoning, not the number: this product has no
+   password recovery by decision, so signing an active learner out risks costing them the one
+   credential they hold, for no security worth having.
+
+Also superseded: `timeline_budget.hard_deadline` in the frontmatter (`2026-09-14`). `S-01` was
+planned and implemented on the explicit decision to prioritise correctness over that date — which is
+why key-ring encryption at rest and a real test harness sit inside that slice rather than deferred
+past it. The date is kept in the frontmatter as the original intent; it is no longer a constraint
+anything is being scheduled against.
 
 Resolved after generation: `target_scale.qps` and `target_scale.data_volume` were not
 captured during shaping and were initially left open. Both were subsequently set — `low`

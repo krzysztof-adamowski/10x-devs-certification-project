@@ -263,8 +263,15 @@ exposed by that GET), and this course is its only workload.
 The selection rule is therefore **the cheapest option that removes a risk or saves real time —
 not the cheapest option.** Unspent credit expires worthless, and `spendingLimit: On` makes the
 ceiling a hard stop rather than a bill, so a paid tier inside the credit costs nothing extra.
+**Prefer a provisioned tier over an auto-pausing one** — the first query after a pause can exceed
+the whole 2s acknowledgement budget, which is the concrete case this rule was written to decide.
 Out of scope: anything whose *ongoing* cost matters after the trial, and anything overkill for a
 single-developer MVP — no Premium/Isolated App Service, no multi-region, no reserved capacity.
+
+**This paragraph is the rule's only home**, as of 2026-09-12. `TenExCards/AGENTS.md` carried a
+summary of it inside a section explicitly written to be deleted once `S-01` landed; `S-01` moved it
+here rather than letting a section-wide delete drop it silently. An agent reading only `AGENTS.md`
+will not find the rule — that file points here for it.
 
 Recorded because it is not the assumption the research above ran under, and it changes the
 database recommendation. The B1 App Service tier is left as-is for now and may be relaxed later
@@ -282,12 +289,18 @@ The stated purpose of the column is that "a future reader can see *why* each ite
 list", and a dated run satisfies that better than folding them into `Research finding` would.
 Rows carrying a date were observed on that date and should be re-verified rather than assumed.
 
+2026-09-12 added one more label in the same spirit — `Change <change-id> <date>`, for a risk a
+slice *created* rather than discovered. It also introduced the register's first closure: a
+**struck-through** risk is closed, and its mitigation cell records the date, the mechanism, and how
+the closure was verified. Closed rows stay in the table rather than being deleted, because the
+reasoning is what tells a later reader whether a change reopens them.
+
 | Risk | Source | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | Built-in runtime patch level is Microsoft's to choose; a CVE fix arrives on the platform's cadence, not yours | Devil's advocate | M | M | Measure how far App Service's image trails a dotnet patch release before relying on it; if the gap is unacceptable, publish self-contained or use a custom container image so the version is yours to pin; verify the deployed patch level after each release |
 | B1 memory exhausted by circuits holding passages plus candidates | Devil's advocate / Pre-mortem | L | M | **Re-rated 2026-09-01 from M/H against the PRD's stated scale.** ~300 KB per active circuit (250 KB baseline plus a few-thousand-word passage and its candidates) against ~1.3 GB usable leaves headroom for thousands of concurrent circuits; the PRD records `target_scale.qps: low` and "at most a handful of concurrent requests". The original M/H came from the platform's general characteristics rather than this project's numbers. Enforce the passage-length bound before generation begins (a PRD requirement regardless). **Revisit — and move to B2 — if concurrent triage sessions reach the low tens, or if circuit state grows beyond the passage plus its candidates.** No load test is warranted at this scale |
 | No slot-based rollback at B1 | Devil's advocate | H | M | Retain every deploy artifact in GitHub Actions; document and rehearse the redeploy-previous-zip path once, before it is needed |
-| ARR affinity fails silently for cookie-blocking clients | Unknown unknowns | L | H | Stay single-instance for MVP; test affinity with cookies disabled before trusting it above one worker. **The Data Protection half of this row closed 2026-09-10 in `F-02`** — the ring persists to the `DataProtectionKeys` table (see Getting Started item 3), and it was never a scaling concern in the first place: an ephemeral ring broke antiforgery at **one** instance on every restart. Affinity is what remains scaling-shaped |
+| ARR affinity fails silently for cookie-blocking clients | Unknown unknowns | L | H | Stay single-instance for MVP; test affinity with cookies disabled before trusting it above one worker. **The Data Protection half of this row closed 2026-09-10 in `F-02`** — the ring persists to the `DataProtectionKeys` table (see Getting Started item 3), and it was never a scaling concern in the first place: an ephemeral ring broke antiforgery at **one** instance on every restart. Its *encryption* half closed 2026-09-12 in `S-01`, in the row below. Affinity is what remains scaling-shaped |
 | Auto-pausing database tiers blow the 2s acknowledgement budget on the first query after idle | Unknown unknowns | M | M | Do not take this risk to conserve credit that expires unspent (see `## Budget Posture`) — choose a provisioned tier that does not auto-pause (Azure SQL Basic/S0, or PostgreSQL Flexible Server B1ms). Measure cold-resume latency only if the free offer is chosen anyway |
 | Deploys drop live circuits mid-triage, losing untriaged candidates | Pre-mortem / Research finding | H | M | Deploy outside usage windows; customise the Blazor reconnect UI to explain what happened rather than showing the default grey overlay |
 | Agent reaches for deprecated `az webapp up` | Unknown unknowns | H | L | Record the deprecation in `TenExCards/AGENTS.md`; the correct command is `az webapp deploy --src-path` |
@@ -305,6 +318,9 @@ Rows carrying a date were observed on that date and should be re-verified rather
 | RBAC role assignments propagate with a delay that presents as a permissions bug | Deployment run 2026-09-10 | M | M | Creating a vault does not grant its creator data-plane access under the RBAC permission model, and a fresh `Key Vault Secrets Officer` assignment can return `Forbidden` for a minute or two. The same delay applies to the *site's* identity: App Service resolves Key Vault references at app **start** and caches the outcome, so a reference set before propagation reports unresolved and does not re-heal. Treat the first non-`Resolved` reading as expected — restart, wait, read again — and escalate to the template only after that. Both `az keyvault secret set` calls in fact succeeded first time on 2026-09-10; the retry stays because the failure mode is silent, not because it fired |
 | A failed startup migration takes the app down with no slot to roll back to | Deployment run 2026-09-10 | L | H | `Database.Migrate()` runs on the boot path, so a migration that throws means the container does not serve — and B1 has no deployment slots. The rollback path is redeploying the retained previous archive, which does **not** reverse schema. Mitigations in force: migrations are forward-only, every migration is applied to `sqldb-tenexcards-dev` before the app's database sees it, the outcome is logged explicitly rather than left to an unhandled exception, and an archive is preserved before each publish. `F-02` deliberately fired the first real boot-path migration against an **empty** database so the risk was exercised while it was cheap, rather than first in `S-01` against a database holding accounts |
 | The "allow Azure services" firewall rule admits any Azure tenant | Deployment run 2026-09-10 | M | H | `AllowAllWindowsAzureIps` is a `0.0.0.0`–`0.0.0.0` entry, and that pair is a magic value rather than a range: it admits traffic originating anywhere in Azure — any subscription, any tenant. For Azure-originating traffic there is therefore **no network boundary**; the boundary is the SQL admin password, which is why it lives in the vault and never on a development machine. Pinning to the app's `possibleOutboundIpAddresses` was considered and declined: those IPs are shared across a scale unit, so it narrows "all of Azure" only to "every app on this scale unit" while breaking the app whenever the IP set rotates. Real isolation needs a private endpoint — out of scope at this tier and budget |
+| ~~The Data Protection key ring is stored unencrypted, so database read access buys token — then session — forgery~~ | Deployment run 2026-09-10 | M | H | **CLOSED 2026-09-12 in `S-01`.** Mechanism: `infra/main.bicep` declares the RSA vault key `dataprotection-key` and a second vault-scoped role assignment granting the site's identity `Key Vault Crypto User`; `Program.cs` chains `.ProtectKeysWithAzureKeyVault(...)` onto the existing `PersistKeysToDbContext<AppDbContext>()`, guarded to skip in Development. Enabling encryption does **not** encrypt keys already written, so the existing plaintext row (`Id = 1`, 887 bytes) was deleted and the container restarted, minting `Id = 2` at 1,942 bytes wrapped with the vault key. Done before any account existed, which is the only reason it was free. Verified in the data, not the log: the row carries `AzureKeyVaultXmlDecryptor` and carries neither `<masterKey>` nor the plaintext writer's `Warning: the key below is in an unencrypted form.` comment — **not** by testing for `<value>`, which appears in both forms and reports a false failure |
+| Database read access still returns every `AspNetUsers.PasswordHash` | Change `S-01` 2026-09-12 | M | M | **Open, and deliberately not closed by the row above.** Encrypting the key ring removed *session forgery* from what database read access buys; it removed neither the access nor the password hashes that `S-01` began writing. What carries the residual risk is the **password policy**, not the key ring: Identity stores PBKDF2-HMAC-SHA512 with a per-user 128-bit salt and a high iteration count, and `S-01` sets a **sixteen-character minimum** on top of that — long enough that a stolen hash is uneconomic to attack offline. That is the security argument for the length, and it is load-bearing: the other two reasons recorded for it (length beats composition; a forgotten password is a permanently dead account) are usability arguments. **Revisit this row if the password policy is ever loosened.** Real closure needs a network boundary on the database — see the firewall row above, and the private endpoint it rules out at this tier |
+| Anyone who can push to `main` can mint a `Contributor` token for the resource group | Deployment run 2026-09-10/11 | M | H | **Open.** OIDC removed the stored credential; it did not narrow *who* can deploy. The federated credential is exact-match on an immutable subject scoped to `refs/heads/main`, so no other ref authenticates — but a push to `main` legitimately holds one. The controls are branch protection on `main` and a role narrower than `Contributor` on `gh-tenexcards-deploy`, and **neither is in place**. Restated here on 2026-09-12 because `S-01` closed the key-ring row above, and a closed security row invites the reading that the deployment trust boundary is settled. It is not |
 
 ## Getting Started
 
@@ -334,14 +350,17 @@ What is left to do, in order:
    Basic database (`sqldb-tenexcards-dev`) exists for local development; that split is a boundary,
    not tidiness, and `TenExCards/AGENTS.md` under `## Deployment` explains why. Measured cost of a
    round-trip: `context/changes/persistence-spine/baseline.md`.
-3. ~~**Persist Data Protection keys in the same change that adds Identity.**~~ **Done 2026-09-10 in
-   `F-02`, not `S-01`.** The keys were pulled forward because `UseAntiforgery()` was already in the
-   pipeline, so the ephemeral ring was already protecting something. `Program.cs` calls
-   `PersistKeysToDbContext<AppDbContext>()`; verified by rendering a form, restarting the container,
-   and submitting the *already-rendered* form successfully. **`S-01` now verifies rather than
-   implements this** — and inherits one genuinely open item: the ring is stored **unencrypted**
-   (`DataProtectionKeys.Xml` is plaintext). Encryption at rest via `ProtectKeysWithAzureKeyVault` is
-   not done, and matters more once the same ring signs auth cookies.
+3. ~~**Persist Data Protection keys in the same change that adds Identity.**~~ **Done in two
+   halves, and they are two guarantees rather than one.** *Persistence* landed 2026-09-10 in `F-02`,
+   pulled forward because `UseAntiforgery()` was already in the pipeline and the ephemeral ring was
+   already protecting something: `Program.cs` calls `PersistKeysToDbContext<AppDbContext>()`.
+   *Encryption at rest* landed 2026-09-12 in `S-01` via `.ProtectKeysWithAzureKeyVault(...)`, guarded
+   to skip in Development, against the vault key `dataprotection-key` the template now declares.
+   `S-01` also re-verified the persistence half in its strongest form — sign in, restart the
+   container, reuse the pre-restart cookie and confirm the session survives — which is what proves
+   encryption did not break persistence. The key row was unchanged across that restart, so the app
+   unwrapped the existing key through Key Vault rather than minting a replacement. Both rules, and
+   how each must be verified, are in `TenExCards/AGENTS.md` under `## Never do these`.
 4. **Verify the circuit end to end**: load the app, submit a passage, and confirm the
    acknowledgement lands under 2s with progress visible for the full generation window, with
    `az webapp log tail` running in a second terminal.
