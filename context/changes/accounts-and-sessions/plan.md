@@ -1102,36 +1102,36 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 1.1 az bicep build compiles main.bicep with no BCP diagnostic
-- [x] 1.2 what-if run, snapshots taken, and the post-deploy diff reconciled against the prediction
-- [x] 1.3 az keyvault key show returns the new key, enabled
-- [x] 1.4 The az rest roleAssignments GET first returns the existing Key Vault Secrets User assignment, proving the command works
-- [x] 1.5 The same command then returns the new Key Vault Crypto User assignment for the site principal
-- [x] 1.6 The template declares a key-identifier output alongside its existing five
-- [x] 1.7 The key-identifier app setting is byte-identical to that deployment output, compared directly, before the encrypting build is merged
-- [x] 1.8 dotnet build succeeds with the Data Protection Key Vault package pinned
-- [x] 1.9 The key-minting boot's log does not contain No XML encryptor configured
-- [x] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element
+- [x] 1.1 az bicep build compiles main.bicep with no BCP diagnostic — 874cd61
+- [x] 1.2 what-if run, snapshots taken, and the post-deploy diff reconciled against the prediction — 874cd61
+- [x] 1.3 az keyvault key show returns the new key, enabled — 874cd61
+- [x] 1.4 The az rest roleAssignments GET first returns the existing Key Vault Secrets User assignment, proving the command works — 874cd61
+- [x] 1.5 The same command then returns the new Key Vault Crypto User assignment for the site principal — 874cd61
+- [x] 1.6 The template declares a key-identifier output alongside its existing five — 874cd61
+- [x] 1.7 The key-identifier app setting is byte-identical to that deployment output, compared directly, before the encrypting build is merged — 874cd61
+- [x] 1.8 dotnet build succeeds with the Data Protection Key Vault package pinned — 874cd61
+- [x] 1.9 The key-minting boot's log does not contain No XML encryptor configured — 874cd61
+- [x] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element — 874cd61
 
 #### Manual
 
-- [x] 1.11 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400
-- [x] 1.12 The site still serves after the app setting is applied and before the encrypting build is merged
-- [x] 1.13 The pre-change key row's identifier and length are recorded and confirmed plaintext
-- [x] 1.14 Post-change: the render-restart-submit check passes against the encrypted ring
-- [x] 1.15 Exactly one key row exists afterwards, and it is not the recorded one
-- [x] 1.16 The what-if reconciliation is written into change.md as predicted against observed
+- [x] 1.11 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400 — 874cd61
+- [x] 1.12 The site still serves after the app setting is applied and before the encrypting build is merged — 874cd61
+- [x] 1.13 The pre-change key row's identifier and length are recorded and confirmed plaintext — 874cd61
+- [x] 1.14 Post-change: the render-restart-submit check passes against the encrypted ring — 874cd61
+- [x] 1.15 Exactly one key row exists afterwards, and it is not the recorded one — 874cd61
+- [x] 1.16 The what-if reconciliation is written into change.md as predicted against observed — 874cd61
 
 ### Phase 2: Identity data model
 
 #### Automated
 
-- [ ] 2.1 dotnet build succeeds with the Identity EF package pinned
-- [ ] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine
-- [ ] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables
-- [ ] 2.4 The migration creates UserNameIndex as unique
-- [ ] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes
-- [ ] 2.6 A local run applies it to the development database and its history contains it
+- [x] 2.1 dotnet build succeeds with the Identity EF package pinned
+- [x] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine
+- [x] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables
+- [x] 2.4 The migration creates UserNameIndex as unique
+- [x] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes
+- [x] 2.6 A local run applies it to the development database and its history contains it
 - [ ] 2.7 CI is green and the startup log applies exactly one pending migration, then reports success
 - [ ] 2.8 verify_deploy.py passes against the deployed site
 

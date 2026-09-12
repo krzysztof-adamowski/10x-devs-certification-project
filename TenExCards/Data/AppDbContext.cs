@@ -1,13 +1,19 @@
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace TenExCards.Data;
 
 /// <summary>
-/// The single context every later slice extends. F-02 gives it only what the persistence spine
-/// needs: the disposable probe entity and the Data Protection key set.
+/// The single context every later slice extends. F-02 gave it the disposable probe entity and the
+/// Data Protection key set; S-01 adds Identity's user store on top.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <see cref="IdentityUserContext{TUser}"/> rather than <see cref="Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext{TUser}"/>
+/// is deliberate: it creates no role tables, which makes AGENTS.md's "never add roles" structural
+/// rather than conventional — <c>AddRoles&lt;&gt;()</c> fails against this base by design.
+/// </para>
 /// <para>
 /// <see cref="IDataProtectionKeyContext"/> is implemented here rather than on a separate context
 /// on purpose: it is what lets <c>PersistKeysToDbContext&lt;AppDbContext&gt;()</c> target this
@@ -22,7 +28,7 @@ namespace TenExCards.Data;
 /// </para>
 /// </remarks>
 public class AppDbContext(DbContextOptions<AppDbContext> options)
-    : DbContext(options), IDataProtectionKeyContext
+    : IdentityUserContext<ApplicationUser>(options), IDataProtectionKeyContext
 {
     /// <summary>
     /// Required by <see cref="IDataProtectionKeyContext"/>. The key ring persists here, so it
@@ -33,4 +39,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
     /// <summary>Throwaway. Deleted by <c>S-01</c> along with its table. See <see cref="SpineProbe"/>.</summary>
     public DbSet<SpineProbe> SpineProbes => Set<SpineProbe>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+    }
 }
