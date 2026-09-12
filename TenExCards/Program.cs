@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using TenExCards.Components;
@@ -37,8 +38,43 @@ builder.Services.AddScoped(sp =>
 
 // Persists the Data Protection key ring to the database, so it survives a container restart. Before
 // this, every restart rotated the ring — rejecting antiforgery tokens minted before it.
-builder.Services.AddDataProtection()
+var dataProtection = builder.Services.AddDataProtection()
     .PersistKeysToDbContext<AppDbContext>();
+
+// Encrypts that ring at rest. PERSISTENCE AND ENCRYPTION ARE DIFFERENT GUARANTEES: the call above
+// makes the key survive a restart, and left to itself it writes DataProtectionKeys.Xml as readable
+// plaintext. ASP.NET Core says so exactly once — `No XML encryptor configured`, logged only on the
+// boot that MINTS a key and never again, which is why its absence from a log proves nothing unless
+// that boot minted one.
+//
+// This matters more from S-01 onward than it did before it. The same ring now signs auth cookies,
+// so database read access that previously bought antiforgery token forgery would otherwise buy
+// session forgery for every account.
+//
+// THE GUARD IS DELIBERATE — do not remove it as an inconsistency. Local development points at
+// sqldb-tenexcards-dev, whose ring protects nothing of value, and requiring vault key permissions on
+// a development machine would widen access that is already wider than anyone likes. A developer
+// without those permissions must still be able to run the app.
+//
+// The identifier is a POINTER, not a secret, so it arrives as a plain app setting rather than as a
+// Key Vault reference — but it is still never in appsettings*.json. Its value comes from the
+// `dataProtectionKeyUri` output of infra/main.bicep, which is what keeps the app setting and the
+// template from drifting apart. CI never sets it, so it must already exist before a build carrying
+// this code is deployed: reaching `new Uri(null)` here happens during service configuration, and the
+// container then does not serve at all, on a tier with no deployment slots.
+if (!builder.Environment.IsDevelopment())
+{
+    var keyIdentifier = builder.Configuration["DataProtection:KeyIdentifier"]
+        ?? throw new InvalidOperationException(
+            "DataProtection:KeyIdentifier is not configured. Outside Development the key ring is "
+            + "encrypted with a Key Vault key, and this setting is the versionless identifier of "
+            + "that key. Deployed, it arrives as the app setting DataProtection__KeyIdentifier, set "
+            + "with `az webapp config appsettings set` from the dataProtectionKeyUri output of "
+            + "infra/main.bicep. Failing here is deliberate: it names the missing setting instead of "
+            + "surfacing later as an opaque `new Uri(null)` during service configuration.");
+
+    dataProtection.ProtectKeysWithAzureKeyVault(new Uri(keyIdentifier), new DefaultAzureCredential());
+}
 
 var app = builder.Build();
 

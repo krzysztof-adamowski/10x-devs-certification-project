@@ -4,8 +4,8 @@
 - **Plan**: `context/changes/accounts-and-sessions/plan.md`
 - **Mode**: Deep
 - **Date**: 2026-09-12
-- **Verdict**: REVISE — **SOUND after triage** (all ten findings fixed in the plan)
-- **Findings**: 5 critical, 5 warnings, 0 observations (F10 added after the main triage, raised by the user)
+- **Verdict**: REVISE — **SOUND after triage** (all eleven findings fixed in the plan)
+- **Findings**: 5 critical, 6 warnings, 0 observations (F10 and F11 added after the main triage, both raised by the user)
 
 ## Verdicts
 
@@ -117,7 +117,8 @@ Two plausible failure points came back clean and are recorded so they are not re
     hard failure.
   - Blind spot: Whether `ProtectKeysWithAzureKeyVault` validates the URI eagerly or lazily. Eager is
     documented and is the worse case; the plan assumes it.
-- **Decision**: FIXED — new Phase 1 change 4 (old 4–6 renumbered to 5–7), criteria 1.6 and 1.11.
+- **Decision**: FIXED — new Phase 1 change 4 (old 4–6 renumbered to 5–7), criteria 1.7 and 1.12
+  (renumbered from 1.6/1.11 when F11 added the output criterion).
 
 ### F4 — Deleting the plaintext key rows mints nothing without a restart
 
@@ -264,9 +265,44 @@ Two plausible failure points came back clean and are recorded so they are not re
   assertions (criterion 4.5), `## Testing Strategy` gained the matching unit-test line, and Phase 6
   change 2 gained the residual-risk record.
 
+### F11 — The key identifier is derived from the template but hand-copied into an app setting
+
+- **Severity**: ⚠️ WARNING
+- **Impact**: 🏃 LOW — quick decision; fix is obvious and narrowly scoped
+- **Dimension**: Plan Completeness
+- **Location**: Phase 1, changes 2 and 4
+- **Raised by**: the user, asking whether an app setting breaks `infra/main.bicep` as the source of
+  truth.
+- **Detail**: **It does not** — and the question is worth recording with its answer, because the
+  reasoning is not obvious from the plan alone. `infra/main.bicep:1-7` carves out exactly one
+  exception to its own source-of-truth claim: *"Anything set imperatively that this template does
+  not declare is drift — except `appSettings`, deliberately excluded."* The reason is at `:240`:
+  declaring even `appSettings: []` makes Bicep authoritative over them, so the next routine deploy
+  silently deletes the connection string and the LLM API key. The template owns the **key** (Phase 1
+  change 2 puts the `Microsoft.KeyVault/vaults/keys` resource there, correctly); the app setting is
+  only the **pointer** the app reads it through, and app settings are the sole channel for that.
+
+  The real gap the question exposed is narrower. Unlike an API key, the key identifier is *derived*
+  from a resource the template owns, so hand-copying it puts the key's name in two places with
+  nothing linking them. A rename in Bicep would leave the app setting pointing at nothing, and that
+  failure surfaces at the first rendered form rather than at boot — the hard-to-attribute kind the
+  plan already warns about for this exact dependency.
+- **Fix**: Declare a key-identifier `output` in the template beside the five it already has
+  (`appUrl`, `planIsLinux`, `sqlServerFqdn`, `vaultUri`, `sitePrincipalId`), prefer the versionless
+  key URI so a rotation does not require re-setting the app setting, source the app setting from
+  `az deployment group show --query properties.outputs`, and assert the two are byte-identical.
+  - Strength: Uses a mechanism the template already established; the pasted value now comes *from*
+    the source of truth instead of from a console reading.
+  - Tradeoff: One more output and one more criterion.
+  - Confidence: HIGH — outputs at `main.bicep:563-567` are the existing precedent.
+  - Blind spot: None significant.
+- **Decision**: FIXED — change 2 gained the output requirement and the versionless-URI preference,
+  change 4 sources the value from the deployment output and records the source-of-truth answer
+  inline so it is not re-litigated, criteria 1.6 and 1.7 added.
+
 ## Post-triage validation
 
 Progress↔Phase contract re-checked mechanically after renumbering: one `## Progress` heading; all
 six `## Phase N: <name>` headings matched by `### Phase N: <name>`; per-phase criteria counts equal
-to progress-line counts (1: 9+6, 2: 8+2, 3: 8+7, 4: 9+2, 5: 8+2, 6: 5+3), re-run after F10; numbering contiguous from
+to progress-line counts (1: 10+6, 2: 8+2, 3: 8+7, 4: 9+2, 5: 8+2, 6: 5+3), re-run after F11; numbering contiguous from
 `N.1` in every phase; zero checkbox bullets outside the Progress section.

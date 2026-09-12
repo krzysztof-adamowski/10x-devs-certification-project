@@ -14,6 +14,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Encrypts the Data Protection key ring at rest with a Key Vault key (S-01). NOT part of the
+         shared framework, so it versions independently of the 10.0.x pins below — do not "align" it
+         with them. 1.6.4 was the latest confirmed with `dotnet package search` on 2026-09-12, not
+         copied from a plan. -->
+    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.4" />
+
+    <!-- DIRECT REFERENCE ON PURPOSE — do not delete it as a redundant transitive.
+         The Keys package above pulls in BOTH Azure.Core 1.61.0 and Azure.Identity 1.17.1, and both
+         of those assemblies define Azure.Identity.DefaultAzureCredential. The build then fails with
+         CS0433 ("the type exists in both ..."), which no `using` or fully-qualified name can fix,
+         because the ambiguity is between two ASSEMBLIES, not two namespaces. Raising Azure.Identity
+         to 1.21.0 resolves it: that version type-forwards the credential to Azure.Core instead of
+         redefining it. Removing this line restores the collision and breaks the build outright.
+         Measured 2026-09-12 (S-01). -->
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

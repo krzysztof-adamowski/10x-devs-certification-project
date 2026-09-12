@@ -110,6 +110,17 @@ param vaultName string = 'kv-tenexcards-plc'
 // rather than a lookup.
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 
+// Key Vault Crypto User — use a key (wrap/unwrap/encrypt/decrypt/sign/verify),
+// never manage one. Added by S-01 (change accounts-and-sessions) for Data
+// Protection key-ring encryption at rest.
+//
+// This GUID was NOT taken from memory. `az role definition list` is unusable on
+// this subscription — every command in the `az role assignment` group, that one
+// included, returns (MissingSubscription). It was read on 2026-09-12 from
+// `az rest` against providers/Microsoft.Authorization/roleDefinitions, the same
+// workaround the vault reference check uses.
+var keyVaultCryptoUserRoleId = '12338af0-0e69-4776-bea7-57ae8d297424'
+
 // WARNING: deploying this template CLEARS `properties.freeOfferExpirationTime`
 // on the plan. Verified 2026-08-31 by snapshot/deploy/diff: the value went from
 // 2026-09-30T18:15:33 to null on a deployment that reported "Succeeded". The
@@ -498,6 +509,47 @@ resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   }
 }
 
+// The key that wraps the Data Protection key ring, added by S-01 (change
+// accounts-and-sessions) on 2026-09-12.
+//
+// A KEY belongs in this template even though a SECRET does not, and the
+// distinction is not arbitrary. The four vault secrets each hold a VALUE that
+// exists outside Azure — a password someone chose, a connection string someone
+// composed — so making the template authoritative over them means a routine
+// deployment deletes data nothing can regenerate. This key has no exported
+// value at all: its private half never leaves the vault, and the only thing the
+// application ever holds is the identifier below. Re-asserting it is therefore
+// idempotent in the way re-asserting a secret is not. Same split the vault
+// itself already documents.
+//
+// keyOps is narrowed to exactly what Data Protection performs.
+// AzureKeyVaultXmlEncryptor calls WrapKeyAsync(RsaOaep) and its decryptor calls
+// UnwrapKeyAsync; nothing in that path signs, verifies, encrypts or decrypts.
+// If a future protect operation fails with a key-operation error rather than an
+// authorization error, THIS list is the thing to widen — not the role
+// assignment below, which already permits every operation this list forbids.
+//
+// Rotation: none declared. The application setting holds the VERSIONLESS
+// identifier (the `keyUri` output at the foot of this file, not
+// `keyUriWithVersion`), so a rotated key is picked up without redeploying the
+// app. A rotation policy is out of scope for S-01.
+//
+// what-if characterisation: NOT YET OBSERVED. This resource is new in this
+// deployment, so it has no no-op redeploy behind it and no phantom baseline.
+// Read its first post-deploy diff carefully rather than against an expectation.
+resource dataProtectionKey 'Microsoft.KeyVault/vaults/keys@2024-11-01' = {
+  parent: vault
+  name: 'dataprotection-key'
+  properties: {
+    kty: 'RSA'
+    keySize: 2048
+    keyOps: [ 'wrapKey', 'unwrapKey' ]
+    attributes: {
+      enabled: true
+    }
+  }
+}
+
 // what-if characterisation, 2026-09-10. PERMANENT PHANTOM:
 //   Modify properties.principalId :
 //     'a3558bdf-...' -> "[reference('.../sites/tenexcards-ka', '2023-12-01', 'full').identity.principalId]"
@@ -560,8 +612,68 @@ resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Lets the app USE dataProtectionKey to wrap and unwrap its key ring. Added by
+// S-01 (change accounts-and-sessions) on 2026-09-12. Key Vault Secrets User
+// above does not cover keys — secrets and keys are separate data-plane
+// surfaces with separate roles — so this is a second assignment, not a
+// duplicate of one.
+//
+// SCOPE IS THE VAULT, NOT THE KEY, and for the same examined reason the
+// assignment above is vault-scoped rather than secret-scoped: on the
+// `az group delete` -> redeploy rebuild that deploy-plan.md documents, a
+// key-scoped assignment would target a key that does not exist yet, and whether
+// ARM tolerates that is UNVERIFIED. The cost of the wider scope is smaller here
+// than there, because this vault holds exactly one key and it is this one — so
+// vault scope and key scope currently grant the same access. That equivalence
+// is a property of today's contents, not a guarantee; revisit this if a second
+// key is ever added.
+//
+// Everything the kvSecretsUser comment says about mechanics applies unchanged:
+// the deterministic guid() name is what keeps redeployment idempotent,
+// principalType: 'ServicePrincipal' is what stops ARM failing on an
+// unreplicated managed identity, and role assignments are EVENTUALLY
+// CONSISTENT — the first failure after granting is expected, not a wrong role.
+//
+// Expect the same permanent phantom the assignment above produces: a Modify on
+// properties.principalId showing the resolved GUID against the unevaluated
+// reference() expression. what-if cannot evaluate it. It is not a change.
+resource kvCryptoUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: vault
+  name: guid(vault.id, site.id, keyVaultCryptoUserRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultCryptoUserRoleId)
+    principalId: site.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output appUrl string = 'https://${site.properties.defaultHostName}'
 output planIsLinux bool = plan.properties.reserved
 output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output vaultUri string = vault.properties.vaultUri
 output sitePrincipalId string = site.identity.principalId
+
+// The value the app setting DataProtection__KeyIdentifier must hold. Read it
+// with `az deployment group show -g rg-tenexcards-plc -n <deployment> --query
+// properties.outputs` and paste THAT — never a value copied off a console
+// reading of the key.
+//
+// This output is what keeps the app setting from being a source-of-truth
+// violation, and the distinction is worth stating because it is not obvious.
+// An app setting is the ONE thing this template deliberately does not declare
+// (see the appSettings block above: declaring even an empty one makes Bicep
+// authoritative and deletes the connection string on the next routine deploy),
+// so the pointer has to live out of band. But unlike an API key, the key
+// identifier is not an independent value — it is DERIVED from a resource this
+// template owns. Hand-copying it would put the key's name in two places with
+// nothing linking them, and renaming the key here would then leave the app
+// setting pointing at nothing. That failure surfaces at the first rendered
+// form, not at boot, which is the hard-to-attribute kind. An output makes the
+// pasted value come from the source of truth rather than from an operator's
+// eyes.
+//
+// VERSIONLESS on purpose — `keyUri`, not `keyUriWithVersion`. Pinning the app
+// to one key version would break silently on rotation, the same reasoning as
+// the versionless secret reference in ConnectionStrings__DefaultConnection
+// (whose trailing slash carries the same meaning).
+output dataProtectionKeyUri string = dataProtectionKey.properties.keyUri

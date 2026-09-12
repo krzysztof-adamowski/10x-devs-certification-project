@@ -245,6 +245,18 @@ plan fixes so the application setting can reference it by identifier. Plus a sec
 `guid(...)` naming. Add a dated characterisation comment above both, as every other resource in this
 template carries.
 
+**Also add an `output` for the key's identifier**, beside the five the template already declares
+(`appUrl`, `planIsLinux`, `sqlServerFqdn`, `vaultUri`, `sitePrincipalId`). This is what stops the
+next change from being a source-of-truth violation. The key identifier is not an independent value
+like an API key — it is *derived* from a resource this template owns, so typing it into an app
+setting by hand puts the key's name in two places with nothing linking them. A rename here would then
+leave the app setting pointing at nothing, and that failure surfaces at the first rendered form
+rather than at boot, which is the hard-to-attribute kind. An output makes the pasted value come *from*
+the template rather than from a console reading.
+
+Prefer the **versionless** key URI, so a future key rotation does not require re-setting the app
+setting — the same reasoning as the versionless secret reference the connection string already uses.
+
 #### 3. The Data Protection Key Vault package
 
 **File**: `TenExCards/TenExCards.csproj`
@@ -263,9 +275,19 @@ pins beside it.
 **Intent**: The encrypting build cannot boot without this value, and CI will never set it. It must
 exist before the build that reads it is merged.
 
-**Contract**: Set an app setting holding the full key identifier of the key created in change 2. It
-is a pointer, not a secret, so it may be passed inline — unlike the connection string, which is a
-Key Vault *reference*. Never in `appsettings*.json`.
+**Contract**: Set an app setting holding the key identifier of the key created in change 2, **read
+from that deployment's output** rather than from a console reading:
+`az deployment group show -g rg-tenexcards-plc -n <deployment> --query properties.outputs`. The value
+is a pointer, not a secret, so it may be passed inline — unlike the connection string, which is a Key
+Vault *reference*. Never in `appsettings*.json`.
+
+**This is the answer to "doesn't an app setting break Bicep as the source of truth?"** It does not:
+`infra/main.bicep`'s own header carves out exactly one exception — *"Anything set imperatively that
+this template does not declare is drift — except `appSettings`, deliberately excluded"* — because
+declaring even an empty `appSettings` block would make Bicep authoritative and delete the connection
+string on the next routine deploy. The template owns the **key**; the app setting is only the
+**pointer** the app reads it through, and app settings are the sole channel for that. Sourcing the
+value from the template's output is what keeps the pointer honest without re-opening the hazard.
 
 **Ordering is the whole point of this being its own change.** App settings are deliberately outside
 the pipeline while a push to `main` *is* a production deploy, so merging change 5 first means
@@ -333,7 +355,8 @@ persistence fail in different places, and a passing deploy is not evidence of ei
 - `az keyvault key show` returns the new key with an enabled status
 - **The check is proven before it is trusted**: the `az rest` GET against `providers/Microsoft.Authorization/roleAssignments` first returns the **existing** `Key Vault Secrets User` assignment for the site principal, which `infra/main.bicep` already declares as `kvSecretsUser`. An empty result here means the command is wrong, not that a role is missing — the failure `lessons.md` records under "Prove the check before trusting the result"
 - Only then: the same command returns the new `Key Vault Crypto User` assignment for the same principal. Not `az role assignment`, every command of which is unusable on this subscription
-- The key-identifier app setting is present on `tenexcards-ka` and holds the full identifier of the key created above, read back with `az webapp config appsettings list` **before the encrypting build is merged**
+- `az bicep build` shows the template declares a key-identifier `output` alongside its existing five
+- The key-identifier app setting is present on `tenexcards-ka` and its value is **byte-identical to that deployment output**, compared directly rather than eyeballed, and read back with `az webapp config appsettings list` **before the encrypting build is merged**
 - `dotnet build` succeeds with the new package at its pinned version
 - The startup log for the boot that mints the new key does **not** contain `No XML encryptor configured`
 - The new `DataProtectionKeys` row's `Xml` contains an `<encryptedKey>` element and no readable `<value>` element
@@ -1079,24 +1102,25 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [ ] 1.1 az bicep build compiles main.bicep with no BCP diagnostic
-- [ ] 1.2 what-if run, snapshots taken, and the post-deploy diff reconciled against the prediction
-- [ ] 1.3 az keyvault key show returns the new key, enabled
-- [ ] 1.4 The az rest roleAssignments GET first returns the existing Key Vault Secrets User assignment, proving the command works
-- [ ] 1.5 The same command then returns the new Key Vault Crypto User assignment for the site principal
-- [ ] 1.6 The key-identifier app setting is present and correct, read back before the encrypting build is merged
-- [ ] 1.7 dotnet build succeeds with the Data Protection Key Vault package pinned
-- [ ] 1.8 The key-minting boot's log does not contain No XML encryptor configured
-- [ ] 1.9 The new DataProtectionKeys row is ciphertext, with no readable value element
+- [x] 1.1 az bicep build compiles main.bicep with no BCP diagnostic
+- [x] 1.2 what-if run, snapshots taken, and the post-deploy diff reconciled against the prediction
+- [x] 1.3 az keyvault key show returns the new key, enabled
+- [x] 1.4 The az rest roleAssignments GET first returns the existing Key Vault Secrets User assignment, proving the command works
+- [x] 1.5 The same command then returns the new Key Vault Crypto User assignment for the site principal
+- [x] 1.6 The template declares a key-identifier output alongside its existing five
+- [x] 1.7 The key-identifier app setting is byte-identical to that deployment output, compared directly, before the encrypting build is merged
+- [x] 1.8 dotnet build succeeds with the Data Protection Key Vault package pinned
+- [ ] 1.9 The key-minting boot's log does not contain No XML encryptor configured
+- [ ] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element
 
 #### Manual
 
-- [ ] 1.10 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400
-- [ ] 1.11 The site still serves after the app setting is applied and before the encrypting build is merged
-- [ ] 1.12 The pre-change key row's identifier and length are recorded and confirmed plaintext
-- [ ] 1.13 Post-change: the render-restart-submit check passes against the encrypted ring
-- [ ] 1.14 Exactly one key row exists afterwards, and it is not the recorded one
-- [ ] 1.15 The what-if reconciliation is written into change.md as predicted against observed
+- [ ] 1.11 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400
+- [ ] 1.12 The site still serves after the app setting is applied and before the encrypting build is merged
+- [ ] 1.13 The pre-change key row's identifier and length are recorded and confirmed plaintext
+- [ ] 1.14 Post-change: the render-restart-submit check passes against the encrypted ring
+- [ ] 1.15 Exactly one key row exists afterwards, and it is not the recorded one
+- [ ] 1.16 The what-if reconciliation is written into change.md as predicted against observed
 
 ### Phase 2: Identity data model
 
