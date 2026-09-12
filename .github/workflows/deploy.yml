@@ -71,6 +71,14 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Named by path, not resolved through the solution -- TenExCards/TenExCards.slnx lists
+      # both projects, and a bare `dotnet test` there would build the non-test application
+      # project too. The solution stays an IDE/local-build convenience, never something CI
+      # discovers implicitly. Runs before Publish: a failing test blocks the deploy before any
+      # publish/pack work happens, not after.
+      - name: Test
+        run: dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj
+
       # `SourceRevisionId` is appended to AssemblyInformationalVersion by the SDK, which is
       # where the footer build marker reads it from. Without it the deployed page cannot say
       # which commit it is, and two deploys of identical source are indistinguishable.
@@ -78,13 +86,6 @@ jobs:
         run: >
           dotnet publish TenExCards/TenExCards/TenExCards.csproj -c Release
           -p:SourceRevisionId=${{ github.sha }}
-
-      # Named by path, not resolved through the solution -- TenExCards/TenExCards.slnx lists
-      # both projects, and a bare `dotnet test` there would build the non-test application
-      # project too. The solution stays an IDE/local-build convenience, never something CI
-      # discovers implicitly.
-      - name: Test
-        run: dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj
 
       # `python3` rather than `python`: guaranteed present on the Linux runner image. Same
       # script, same defaults as a local `python scripts/pack.py` on Windows.
