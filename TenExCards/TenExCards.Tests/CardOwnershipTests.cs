@@ -27,20 +27,21 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var user = new ApplicationUser
-        {
-            UserName = $"owner-{Guid.NewGuid():N}@example.com",
-            Email = $"owner-{Guid.NewGuid():N}@example.com",
-        };
+        // ONE address for both fields. The unique UserNameIndex behind UserName is the only
+        // database-level guard on email uniqueness (EmailIndex is non-unique), so a helper that
+        // lets the two drift is not the shape the application actually registers.
+        var email = $"owner-{Guid.NewGuid():N}@example.com";
+        var user = new ApplicationUser { UserName = email, Email = email };
         var result = await userManager.CreateAsync(user, ValidPassword);
         result.Succeeded.Should().BeTrue(string.Join("; ", result.Errors.Select(e => e.Description)));
         return user.Id;
     }
 
     /// <summary>
-    /// A fresh scope per call, because <see cref="ICardStore"/> is registered scoped alongside the
-    /// scoped <see cref="AppDbContext"/> — sharing one scope across a whole test would let EF's
-    /// change tracker answer a read that the database never saw.
+    /// A fresh scope per call. <see cref="CardStore"/> creates and disposes its own context per
+    /// member, so this is belt-and-braces rather than load-bearing — it keeps the test honest if
+    /// the store ever goes back to holding one, by never letting a change tracker answer a read
+    /// the database never saw.
     /// </summary>
     private async Task<T> WithStoreAsync<T>(Func<ICardStore, Task<T>> work)
     {
@@ -125,5 +126,17 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
 
         await act.Should().ThrowAsync<ArgumentException>(
             "an ownerless card has no account boundary to sit behind");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CountForOwnerAsync_WithNoOwner_IsRefused(string ownerId)
+    {
+        var act = async () => await WithStoreAsync(store =>
+            store.CountForOwnerAsync(ownerId, CancellationToken.None));
+
+        await act.Should().ThrowAsync<ArgumentException>(
+            "an ownerless count would be a Cards query with no account boundary");
     }
 }

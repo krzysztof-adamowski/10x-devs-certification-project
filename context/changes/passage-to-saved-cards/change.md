@@ -1,7 +1,7 @@
 ---
 change_id: passage-to-saved-cards
 title: Passage to saved cards
-status: implementing
+status: impl_reviewed
 created: 2026-09-12
 updated: 2026-09-13
 ---

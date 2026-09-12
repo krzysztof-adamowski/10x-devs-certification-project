@@ -42,9 +42,12 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
-// SCOPED, matching the AppDbContext registration above — a singleton store would capture one
-// context for the lifetime of the process. This is the only type allowed to query the Cards table;
-// every member takes the owner id, so the account boundary cannot be forgotten at a call site.
+// The only type allowed to query the Cards table; every member takes the owner id, so the account
+// boundary cannot be forgotten at a call site. It resolves the FACTORY above rather than the scoped
+// context shim and creates one context per call — in Blazor Server a DI scope is the circuit, so a
+// scoped context injected into a component would live for the learner's whole session. See the
+// remarks on CardStore itself. The registration stays scoped so that later members may depend on
+// scoped services; nothing about the store's own state requires it.
 builder.Services.AddScoped<ICardStore, CardStore>();
 
 // EnableRetryOnFailure above is not optional: Azure SQL produces transient faults, and a retry the

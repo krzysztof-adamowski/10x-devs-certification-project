@@ -40,6 +40,16 @@ namespace TenExCards.Migrations
         }
 
         /// <inheritdoc />
+        /// <remarks>
+        /// EF generated this; it was not authored, and nothing relies on it. Migrations in this
+        /// project are FORWARD-ONLY. The rollback path for a bad deploy is redeploying the retained
+        /// previous archive, which does not reverse schema — and Program.cs runs Migrate() on the
+        /// boot path, so a failed migration means the container does not serve at all. Do not read
+        /// the presence of this method as a rollback story.
+        ///
+        /// This one matters more than its predecessors: it is the first Down() in this project that
+        /// would destroy real product data. Running it drops every card every learner has saved.
+        /// </remarks>
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
