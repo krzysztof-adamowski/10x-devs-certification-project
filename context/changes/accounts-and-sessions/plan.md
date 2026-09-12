@@ -1126,42 +1126,42 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 2.1 dotnet build succeeds with the Identity EF package pinned — 4f9e09a
-- [x] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine — 4f9e09a
-- [x] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables — 4f9e09a
-- [x] 2.4 The migration creates UserNameIndex as unique — 4f9e09a
-- [x] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes — 4f9e09a
-- [x] 2.6 A local run applies it to the development database and its history contains it — 4f9e09a
-- [x] 2.7 CI is green and the startup log applies exactly one pending migration, then reports success — 4f9e09a
-- [x] 2.8 verify_deploy.py passes against the deployed site — 4f9e09a
+- [x] 2.1 dotnet build succeeds with the Identity EF package pinned — 175097f
+- [x] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine — 175097f
+- [x] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables — 175097f
+- [x] 2.4 The migration creates UserNameIndex as unique — 175097f
+- [x] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes — 175097f
+- [x] 2.6 A local run applies it to the development database and its history contains it — 175097f
+- [x] 2.7 CI is green and the startup log applies exactly one pending migration, then reports success — 175097f
+- [x] 2.8 verify_deploy.py passes against the deployed site — 175097f
 
 #### Manual
 
-- [x] 2.9 The four AspNet tables exist in the app database and the encrypted key row is intact — 4f9e09a
-- [x] 2.10 SpineProbes is still present and /db-check still round-trips — 4f9e09a
+- [x] 2.9 The four AspNet tables exist in the app database and the encrypted key row is intact — 175097f
+- [x] 2.10 SpineProbes is still present and /db-check still round-trips — 175097f
 
 ### Phase 3: Register, sign in, sign out
 
 #### Automated
 
-- [x] 3.1 dotnet build succeeds — bbeb1ea
-- [x] 3.2 An unauthenticated gated route returns 302 to the login path, not 401 — bbeb1ea
-- [x] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker — bbeb1ea
-- [x] 3.4 The rendered login page references at least one same-origin stylesheet or script — bbeb1ea
-- [x] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html — bbeb1ea
-- [x] 3.6 The same content-type check passes against the deployed site after the Phase 3 deploy — bbeb1ea
-- [x] 3.7 verify_deploy.py passes against the deployed site — bbeb1ea
-- [x] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login — bbeb1ea
+- [x] 3.1 dotnet build succeeds — 606e084
+- [x] 3.2 An unauthenticated gated route returns 302 to the login path, not 401 — 606e084
+- [x] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker — 606e084
+- [x] 3.4 The rendered login page references at least one same-origin stylesheet or script — 606e084
+- [x] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html — 606e084
+- [x] 3.6 The same content-type check passes against the deployed site after the Phase 3 deploy — 606e084
+- [x] 3.7 verify_deploy.py passes against the deployed site — 606e084
+- [x] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login — 606e084
 
 #### Manual
 
-- [x] 3.9 Registration with a sixteen-character password succeeds and arrives signed in — bbeb1ea
-- [x] 3.10 Sign-out returns to an anonymous home page and a gated route then redirects to login — bbeb1ea
-- [x] 3.11 A duplicate email address is refused with a message naming the reason — bbeb1ea
-- [x] 3.12 A short password is refused before the account is created, naming the length requirement — bbeb1ea
-- [x] 3.13 Six failed sign-ins produce a lockout that lifts on its own within roughly five minutes — bbeb1ea
-- [x] 3.14 A signed-in session survives a container restart — bbeb1ea
-- [x] 3.15 The auth cookie carries Secure and HttpOnly over the deployed HTTPS origin — bbeb1ea
+- [x] 3.9 Registration with a sixteen-character password succeeds and arrives signed in — 606e084
+- [x] 3.10 Sign-out returns to an anonymous home page and a gated route then redirects to login — 606e084
+- [x] 3.11 A duplicate email address is refused with a message naming the reason — 606e084
+- [x] 3.12 A short password is refused before the account is created, naming the length requirement — 606e084
+- [x] 3.13 Six failed sign-ins produce a lockout that lifts on its own within roughly five minutes — 606e084
+- [x] 3.14 A signed-in session survives a container restart — 606e084
+- [x] 3.15 The auth cookie carries Secure and HttpOnly over the deployed HTTPS origin — 606e084
 
 ### Phase 4: Test project and CI gate
 
@@ -1173,7 +1173,7 @@ only because no account exists yet, which is the reason that phase is first.
 - [x] 4.4 Tests assert the configured password length, disabled character classes, lockout and seven-day sliding cookie
 - [x] 4.5 Tests assert password storage: framework hasher, IdentityV3 compatibility mode, observed iteration count, and a PasswordHash that is neither null nor the submitted password
 - [x] 4.6 AwesomeAssertions is referenced and FluentAssertions is not
-- [ ] 4.7 CI is green and its step list shows the test step running before publish
+- [x] 4.7 CI is green and its step list shows the test step running before publish
 - [x] 4.8 deploy.yml names both csproj paths explicitly, neither resolved through the solution
 - [x] 4.9 The migration-skip flag defaults to running the migration when unset
 
