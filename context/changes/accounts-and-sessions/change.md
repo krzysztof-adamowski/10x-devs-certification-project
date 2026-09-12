@@ -11,6 +11,47 @@ archived_at: null
 
 <!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->
 
+### Phase 5 finding: the inherited tests named the retired routes, and removing the pages required fixing the auth-boundary assumption baked into them
+
+`AuthBoundaryTests.cs` (landed in Phase 4) used `/circuit-check` as its worked example of "a gated
+route" in two tests: an unauthenticated redirect check, and the round-trip test's "reach a gated
+route while signed in" step, which asserted `200 OK`. Both assumptions broke once `CircuitCheck.razor`
+was deleted, and the break was not the one it looked like.
+
+**Verified empirically, per the standing rule not to assume the framework's behavior at a route
+boundary.** A throwaway `WebApplicationFactory` probe (deleted after use) against a path matching no
+page at all showed: unauthenticated, the global fallback authorization policy redirects to
+`/Account/Login` before Blazor's own router ever runs — identical to a real gated page, since the
+policy is enforced at the endpoint-routing layer, ahead of component matching. Authenticated, the
+same unmatched path clears the fallback policy and resolves through the router's own `NotFound`
+handling, returning `404` with the not-found page's content. This is also the mechanism behind
+criterion 5.8 ("requests for the two retired routes return the not-found page"): that behavior only
+holds for an authenticated request, since an unauthenticated one is redirected to login first and
+never reaches the router at all.
+
+Fixed by replacing the two `/circuit-check` literals with a private `UnmatchedRoute` constant holding
+a path that matches no page, and changing the "reach a gated route while signed in" assertion from
+`OK` to `NotFound`. The literal-string replacement was necessary independent of the test fix: Phase
+5's own criterion 5.1 searches `TenExCards/` (excluding `Migrations/`) for the retired names, and the
+inherited tests would have failed that search on their own once the pages were gone. A stale
+`DbCheck.razor` reference in a `Register.razor` comment was corrected for the same reason.
+
+### Phase 5 finding: a `BadImageFormatException` during route-table warm-up, not a regression
+
+The deploy's startup log shows the migration succeeding (`Applying 1 pending migration(s):
+20260912135900_DropSpineProbes` → `Migrations applied successfully`) followed, a few seconds before
+`Application started`, by a `BadImageFormatException` thrown inside ASP.NET Core's lazy endpoint
+route-table initialization (`RouteEndpointDataSource.CreateRouteEndpointBuilder` →
+`TypeHelper.IsCompilerGeneratedType`), surfacing as a confusingly-worded `InvalidOperationException`
+about a mangled type name.
+
+**Checked against the full log archive before treating it as a regression**: the identical exception
+appears in the 2026-09-10 startup log too — two days before this phase existed — and both boots are
+recorded by App Service's own health check as `success`. It is a pre-existing platform artifact of
+this container image's first-request route-table construction, unrelated to anything Phase 5 changed.
+The live site was confirmed healthy after this boot (root page, retired-route redirects, and the
+`build 9fccf42` marker all correct).
+
 ### Phase 4 finding: `TenExCards/` restructured into a solution folder, on request
 
 The plan's Phase 4 contract reads "`TenExCards.sln` at the repository root." Mid-phase, on explicit

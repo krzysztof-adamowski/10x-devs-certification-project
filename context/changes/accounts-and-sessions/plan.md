@@ -1186,19 +1186,19 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 5.1 No occurrence of CircuitCheck, circuit-check, DbCheck, db-check or SpineProbe remains under TenExCards/, excluding TenExCards/Migrations/
-- [x] 5.2 The model snapshot lost its SpineProbe block while InitialSpine and its Designer file are unchanged
-- [x] 5.3 Nothing under context/changes/ or context/deployment/ was edited to satisfy the search
-- [x] 5.4 dotnet build and dotnet test both pass
-- [x] 5.5 The migration drops SpineProbes and contains no other table operation
-- [x] 5.6 A local run applies it to the development database and SpineProbes is gone there
-- [ ] 5.7 CI is green and the startup log applies exactly one pending migration
-- [x] 5.8 Requests for the two retired routes return the not-found page
+- [x] 5.1 No occurrence of CircuitCheck, circuit-check, DbCheck, db-check or SpineProbe remains under TenExCards/, excluding TenExCards/Migrations/ — 9fccf42
+- [x] 5.2 The model snapshot lost its SpineProbe block while InitialSpine and its Designer file are unchanged — 9fccf42
+- [x] 5.3 Nothing under context/changes/ or context/deployment/ was edited to satisfy the search — 9fccf42
+- [x] 5.4 dotnet build and dotnet test both pass — 9fccf42
+- [x] 5.5 The migration drops SpineProbes and contains no other table operation — 9fccf42
+- [x] 5.6 A local run applies it to the development database and SpineProbes is gone there — 9fccf42
+- [x] 5.7 CI is green and the startup log applies exactly one pending migration — 9fccf42
+- [x] 5.8 Requests for the two retired routes return the not-found page — 9fccf42
 
 #### Manual
 
-- [ ] 5.9 SpineProbes is absent from the app database while the AspNet tables and the key row are intact
-- [ ] 5.10 Navigation shows no stale entries, the home page reads coherently, and the build marker still renders
+- [x] 5.9 SpineProbes is absent from the app database while the AspNet tables and the key row are intact — 9fccf42
+- [x] 5.10 Navigation shows no stale entries, the home page reads coherently, and the build marker still renders — 9fccf42
 
 ### Phase 6: Update the repository record
 
