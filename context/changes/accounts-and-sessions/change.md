@@ -11,6 +11,77 @@ archived_at: null
 
 <!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->
 
+### Phase 3 finding: the fallback policy gates `MapStaticAssets()` but not the render-mode endpoint
+
+The plan warned that `MapStaticAssets()` and `AddInteractiveServerRenderMode()` both map endpoints
+carrying no authorization metadata, so the global fallback policy (`RequireAuthenticatedUser`)
+could 302 every stylesheet and script to the login path — and that `verify_deploy.py` cannot catch
+this, since it follows redirects and asserts status only.
+
+**Verified empirically, per the plan's own instruction not to discover this in production.**
+Running locally against `sqldb-tenexcards-dev` before committing: with only
+`app.MapStaticAssets().AllowAnonymous()` added, every asset on `/` (bootstrap.css, app.css,
+`TenExCards.styles.css`, `ReconnectModal.razor.js`, `blazor.web.js`) returned `200` with its own
+content type while signed out, and a genuinely gated route (`/circuit-check`, which carries no
+`[AllowAnonymous]`) still correctly redirected `302` to `/Account/Login`.
+
+**`AddInteractiveServerRenderMode()`'s own builder was deliberately left un-anonymous.** Calling
+`.AllowAnonymous()` on it was considered and rejected: `MapRazorComponents<App>()` returns one
+`IEndpointConventionBuilder` covering every page route, and per-page `[Authorize]`/`[AllowAnonymous]`
+metadata composes with (does not override) a convention applied at that builder level — an
+`IAllowAnonymous` marker anywhere in an endpoint's metadata short-circuits authorization for that
+endpoint. Marking the whole builder anonymous risked exempting every future gated page, not just the
+interactive-circuit hub. It was not needed regardless: no anonymous page in this slice uses
+`@rendermode InteractiveServer` (the only interactive page, `CircuitCheck.razor`, has no
+`[AllowAnonymous]` and is now itself gated), so `blazor.web.js` never attempts to negotiate a circuit
+for an anonymous visitor. Revisit this the first time an anonymous page needs interactivity.
+
+### Phase 3 finding: lockout triggers on the 5th failed attempt, not the 6th
+
+The plan's manual step (3.13) describes "six consecutive failed sign-ins." Tested against a real
+registered account with `lockoutOnFailure: true` and no `Lockout` options overridden: the account
+locked out on the **5th** failed attempt (Identity's default `MaxFailedAccessAttempts = 5`); the 6th
+attempt also reported locked-out. This is the framework default, left untouched deliberately — the
+same "inherited, not configured" reasoning Phase 3's `## Changes Required` applies to password
+storage. Read the plan's "six" as an approximate description, not a value this slice sets.
+
+### Phase 3 finding: restart-survival, verified against the deployed site with a throwaway account
+
+Following the "verify a restart from the log, never from the first 200" lesson: registered
+`deploy-verify@example.com` against `https://tenexcards-ka.azurewebsites.net`, confirmed
+`Set-Cookie: .AspNetCore.Identity.Application=...; secure; samesite=lax; httponly`, issued
+`az webapp restart` at `12:33:33Z`, then polled the startup log rather than the site's first `200`.
+A fresh `Application started` line appeared at `12:34:54Z` — about 81 seconds later, consistent with
+Phase 1's ~2-minute finding for the same platform behavior. Reused the pre-restart cookie
+afterward: `/` still rendered "Signed in as deploy-verify@example.com" and the gated
+`/circuit-check` route returned `200` rather than redirecting to login — the auth-cookie form of the
+key-ring check, and the strongest evidence this slice can produce that Phase 1's encryption did not
+break persistence. The test account was deleted from `sqldb-tenexcards` afterward
+(`DELETE FROM AspNetUsers WHERE Email = 'deploy-verify@example.com'`) to leave the production
+database clean.
+
+### Phase 3 finding: an in-flight background poll's timestamp check could never succeed
+
+A first attempt at the restart-survival check above used a backgrounded shell loop with an `awk`
+range-match against the exact restart timestamp string to decide when a fresh startup line had
+appeared. Because no log line's sub-second timestamp exactly matched the literal comparison string,
+the range never opened and the loop would have polled forever without ever reporting success or
+failure — silent, not merely slow. Caught by inspecting the task's raw output file directly (zero
+lines after several minutes, on a check that Phase 1 measured taking about two minutes) rather than
+trusting the wakeup schedule alone. Replaced with a single direct check comparing the actual log
+timestamps by eye. Any future restart-survival automation should compare epoch seconds, not
+substring-match a timestamp literal.
+
+### Phase 3 finding: code-behind convention adopted mid-phase, scoped to files this phase touches
+
+Partway through Phase 3, all `.razor` files carrying a `@code` block were split into markup-only
+`.razor` plus a `.razor.cs` partial class, on request. Scope was deliberately limited to files this
+phase created or touched (`Register`, `Login`, `StatusMessage`, `RedirectToLogin`, `Error`,
+`MainLayout`) rather than the whole project — `DbCheck.razor` and `CircuitCheck.razor` are untouched
+and both retire in Phase 5 regardless. One gotcha: `@inherits` must stay in the `.razor` file rather
+than being restated as a base class on the `.cs` partial — the Razor-generated partial and the
+hand-written partial disagreeing on the base class is a compile error (`CS0263`), not a merge.
+
 ### Phase 1 finding: the operator cannot run the plan's own key-verification command
 
 Criterion 1.3 is written as `az keyvault key show`. That command returns `(Forbidden) Caller is not

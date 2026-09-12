@@ -1144,24 +1144,24 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 3.1 dotnet build succeeds
-- [x] 3.2 An unauthenticated gated route returns 302 to the login path, not 401
-- [x] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker
-- [x] 3.4 The rendered login page references at least one same-origin stylesheet or script
-- [x] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html
-- [ ] 3.6 The same content-type check passes against the deployed site after the Phase 3 deploy
-- [ ] 3.7 verify_deploy.py passes against the deployed site
-- [x] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login
+- [x] 3.1 dotnet build succeeds — bbeb1ea
+- [x] 3.2 An unauthenticated gated route returns 302 to the login path, not 401 — bbeb1ea
+- [x] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker — bbeb1ea
+- [x] 3.4 The rendered login page references at least one same-origin stylesheet or script — bbeb1ea
+- [x] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html — bbeb1ea
+- [x] 3.6 The same content-type check passes against the deployed site after the Phase 3 deploy — bbeb1ea
+- [x] 3.7 verify_deploy.py passes against the deployed site — bbeb1ea
+- [x] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login — bbeb1ea
 
 #### Manual
 
-- [ ] 3.9 Registration with a sixteen-character password succeeds and arrives signed in
-- [ ] 3.10 Sign-out returns to an anonymous home page and a gated route then redirects to login
-- [ ] 3.11 A duplicate email address is refused with a message naming the reason
-- [ ] 3.12 A short password is refused before the account is created, naming the length requirement
-- [ ] 3.13 Six failed sign-ins produce a lockout that lifts on its own within roughly five minutes
-- [ ] 3.14 A signed-in session survives a container restart
-- [ ] 3.15 The auth cookie carries Secure and HttpOnly over the deployed HTTPS origin
+- [x] 3.9 Registration with a sixteen-character password succeeds and arrives signed in — bbeb1ea
+- [x] 3.10 Sign-out returns to an anonymous home page and a gated route then redirects to login — bbeb1ea
+- [x] 3.11 A duplicate email address is refused with a message naming the reason — bbeb1ea
+- [x] 3.12 A short password is refused before the account is created, naming the length requirement — bbeb1ea
+- [x] 3.13 Six failed sign-ins produce a lockout that lifts on its own within roughly five minutes — bbeb1ea
+- [x] 3.14 A signed-in session survives a container restart — bbeb1ea
+- [x] 3.15 The auth cookie carries Secure and HttpOnly over the deployed HTTPS origin — bbeb1ea
 
 ### Phase 4: Test project and CI gate
 
