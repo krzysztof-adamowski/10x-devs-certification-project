@@ -1,0 +1,8 @@
+@* Adapted from the .NET 10 Identity template's Account/Shared/StatusMessage.razor, unchanged. *@
+@if (!string.IsNullOrEmpty(DisplayMessage))
+{
+    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
+    <div class="alert alert-@statusMessageClass" role="alert">
+        @DisplayMessage
+    </div>
+}

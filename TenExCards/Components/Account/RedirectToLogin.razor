@@ -1,0 +1,5 @@
+@* Adapted from the .NET 10 Identity template's Account/Shared/RedirectToLogin.razor, unchanged.
+   Used as the NotAuthorized fragment in Routes.razor: an in-circuit client-side navigation to a
+   gated route doesn't go through the ASP.NET Core HTTP pipeline again, so this is what redirects
+   it — a forced full-page load, since a circuit cannot itself carry the caller to a page that
+   needs to read or write an auth cookie. *@

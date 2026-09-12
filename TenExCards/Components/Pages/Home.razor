@@ -1,8 +1,12 @@
 @page "/"
+@attribute [AllowAnonymous]
+@using TenExCards.Components.Account
 
 <PageTitle>10xCards</PageTitle>
 
 <h1>10xCards</h1>
+
+<StatusMessage />
 
 <p>
     Turn a passage you have just read into flashcards worth keeping.
@@ -13,3 +17,15 @@
     cards you accept arrive in later slices; for now, <a href="circuit-check">Circuit check</a>
     confirms the server connection this app runs on.
 </p>
+
+<AuthorizeView>
+    <Authorized>
+        <p>Signed in as <strong>@context.User.Identity?.Name</strong>.</p>
+    </Authorized>
+    <NotAuthorized>
+        <p>
+            <a href="Account/Register">Register</a> or <a href="Account/Login">sign in</a> to get
+            started.
+        </p>
+    </NotAuthorized>
+</AuthorizeView>

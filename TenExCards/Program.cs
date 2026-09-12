@@ -1,7 +1,11 @@
 using Azure.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TenExCards.Components;
+using TenExCards.Components.Account;
 using TenExCards.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<IdentityRedirectManager>();
+builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
 // Deployed, this resolves an App Service setting holding a Key Vault reference; locally it comes
 // from user-secrets, pointing at the DEVELOPMENT database. It is never in appsettings*.json.
@@ -35,6 +43,56 @@ builder.Services.AddScoped(sp =>
 
 // EnableRetryOnFailure above is not optional: Azure SQL produces transient faults, and a retry the
 // application does not make becomes a user-visible failure against a 2s acknowledgement budget.
+
+// The cookie scheme is the default; there is no external login, so no DefaultSignInScheme override
+// is needed for it. AddIdentityCookies() registers the handler LoginPath below configures.
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    })
+    .AddIdentityCookies();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    // Seven days, sliding: the PRD's session-inactivity window (see context/foundation/prd.md
+    // "## Open Questions" item 1), renewed on activity rather than fixed from sign-in.
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.SlidingExpiration = true;
+});
+
+// NO AddDefaultTokenProviders() — DELIBERATE. It registers the email-confirmation, phone and
+// authenticator token providers, which is exactly the surface `## What We're NOT Doing` forbids
+// (no password recovery, no 2FA). Register, sign in, sign out and lockout all work without it.
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false;
+        options.User.RequireUniqueEmail = true;
+
+        // LENGTH OVER COMPOSITION — DELIBERATE, do not restore the character-class defaults. A
+        // forgotten password is a permanently dead account here (no recovery), and sixteen
+        // characters is what makes a stolen PasswordHash uneconomic to attack offline even though
+        // database read access still returns that hash (see Phase 1's overview). Password
+        // *storage* itself is left untouched below — inherited from AddIdentityCore, not written.
+        options.Password.RequiredLength = 16;
+        options.Password.RequireDigit = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+    })
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager();
+
+// Everything is protected unless it says otherwise: Home, Error, NotFound and the Identity pages
+// carry [AllowAnonymous]. MapStaticAssets() and AddInteractiveServerRenderMode() below both map
+// endpoints of their own that carry no such attribute, so they need it added explicitly below —
+// otherwise every stylesheet and script 302s to the login path. See TenExCards/AGENTS.md.
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // Persists the Data Protection key ring to the database, so it survives a container restart. Before
 // this, every restart rotated the ring — rejecting antiforgery tokens minted before it.
@@ -126,10 +184,22 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 // infra/main.bicep. That guarantee is what makes the absence safe -- reinstate the middleware if
 // this app is ever deployed somewhere that cannot enforce it. See TenExCards/AGENTS.md "### HTTPS".
 
+// Must come BEFORE UseAntiforgery(): antiforgery validation on a POST needs to know who the
+// caller is first. ASPNETCORE_FORWARDEDHEADERS_ENABLED is already on by platform default and must
+// stay unset — see TenExCards/AGENTS.md — so Request.IsHttps is already correct here and the auth
+// cookie keeps `Secure` under the default CookieSecurePolicy.SameAsRequest.
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// The logout POST must be reachable whether or not the caller is authenticated (posting it twice,
+// or after the cookie already expired, must not itself 302 to login), mapped after
+// MapRazorComponents<App>() per the .NET Identity template's own convention for account endpoints.
+app.MapIdentityLogout().AllowAnonymous();
 
 app.Run();

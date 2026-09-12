@@ -1144,14 +1144,14 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [ ] 3.1 dotnet build succeeds
-- [ ] 3.2 An unauthenticated gated route returns 302 to the login path, not 401
-- [ ] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker
-- [ ] 3.4 The rendered login page references at least one same-origin stylesheet or script
-- [ ] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html
+- [x] 3.1 dotnet build succeeds
+- [x] 3.2 An unauthenticated gated route returns 302 to the login path, not 401
+- [x] 3.3 An unauthenticated GET of the root returns 200 and its body contains the build marker
+- [x] 3.4 The rendered login page references at least one same-origin stylesheet or script
+- [x] 3.5 Locally and signed out, every same-origin stylesheet and script on the root responds 200 with its own content type, not text/html
 - [ ] 3.6 The same content-type check passes against the deployed site after the Phase 3 deploy
 - [ ] 3.7 verify_deploy.py passes against the deployed site
-- [ ] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login
+- [x] 3.8 No route or component exists for password reset, email confirmation, two-factor or external login
 
 #### Manual
 
