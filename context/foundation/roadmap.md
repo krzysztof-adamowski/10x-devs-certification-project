@@ -61,7 +61,7 @@ reason to exist.
 | F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | done |
 | F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | done |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
-| S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | in-progress |
+| S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | done |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | proposed |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | proposed |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | proposed |
@@ -259,7 +259,7 @@ rather than reopening them.
   container, reuse the pre-restart cookie), and the ring **encrypted at rest** with a Key Vault key,
   done first while no account existed because closing it means discarding a key. `TenExCards.Tests`
   exists and gates the deploy — proven by failing one deliberately and reading the run's step list.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-02: Learner turns a pasted passage into saved cards
 
@@ -461,3 +461,6 @@ first milestone. Closure entries are written when a milestone closes.)
   Archived 2026-09-12 → `context/archive/2026-09-08-persistence-spine/`. Lesson: —.
 - **F-03: (foundation) a merge to the main branch builds, packages, and deploys the app, and the
   deployable artifact is retained.** — Archived 2026-09-12 → `context/archive/2026-09-08-deploy-pipeline/`. Lesson: —.
+- **S-01: user can register with an email address and a password, sign in with the same pair,
+  and sign out — and everything they create belongs to that account and is visible to nobody else.** —
+  Archived 2026-09-12 → `context/archive/2026-09-12-accounts-and-sessions/`. Lesson: —.
