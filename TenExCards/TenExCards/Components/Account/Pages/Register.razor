@@ -2,7 +2,8 @@
 
 @* STATICALLY RENDERED ON PURPOSE — no @rendermode. SignInManager writes cookies to the HTTP
    response, which a circuit cannot do; the EditForm's SSR rendering emits the antiforgery token
-   itself, the same pattern DbCheck.razor already proves. See TenExCards/AGENTS.md. *@
+   itself, the same statically-rendered-form pattern this app has used since F-02. See
+   TenExCards/AGENTS.md. *@
 
 <PageTitle>Register</PageTitle>
 

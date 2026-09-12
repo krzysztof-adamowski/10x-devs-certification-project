@@ -17,6 +17,15 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
 {
     private const string ValidPassword = "CorrectHorseBattery16";
 
+    // Any path matching no page. Deliberately generic rather than naming a specific retired route:
+    // S-01 phase 5 retired the app's only two non-account gated pages, and this file must not
+    // reintroduce their names — Phase 5's own automated criterion 5.1 searches TenExCards/ for them.
+    // An unmatched path is gated identically to a real one: the fallback authorization policy runs
+    // before Blazor's own router gets a chance to render NotFound, so unauthenticated never reaches
+    // that far, and authenticated resolves to NotFound rather than to a login redirect. Verified
+    // empirically 2026-09-12 against a throwaway probe before this file was written this way.
+    private const string UnmatchedRoute = "/this-route-does-not-exist";
+
     private static string UniqueEmail([System.Runtime.CompilerServices.CallerMemberName] string caller = "") =>
         $"{caller.ToLowerInvariant()}-{Guid.NewGuid():N}@example.com";
 
@@ -59,7 +68,7 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
     {
         using var client = CreateNoRedirectClient();
 
-        var response = await client.GetAsync("/circuit-check");
+        var response = await client.GetAsync(UnmatchedRoute);
 
         response.StatusCode.Should().Be(HttpStatusCode.Found);
         // TestServer's cookie challenge reports Location as an absolute http://localhost/... URI
@@ -81,9 +90,11 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
         var homeHtml = await homeResponse.Content.ReadAsStringAsync();
         homeHtml.Should().Contain($"Signed in as <strong>{email}</strong>");
 
-        // Reach a gated route.
-        var gatedWhileSignedIn = await client.GetAsync("/circuit-check");
-        gatedWhileSignedIn.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Reach a gated route. Signed in, an unmatched path clears the fallback policy and resolves
+        // to NotFound rather than to a login redirect — that contrast with the pre-sign-in and
+        // post-sign-out assertions below is the round trip this test proves.
+        var gatedWhileSignedIn = await client.GetAsync(UnmatchedRoute);
+        gatedWhileSignedIn.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         // Sign out.
         var antiforgeryField = HtmlFormHelpers.ExtractHiddenFields(homeHtml, "__RequestVerificationToken");
@@ -91,7 +102,7 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.Found);
 
         // Lose access to the gated route.
-        var gatedAfterSignOut = await client.GetAsync("/circuit-check");
+        var gatedAfterSignOut = await client.GetAsync(UnmatchedRoute);
         gatedAfterSignOut.StatusCode.Should().Be(HttpStatusCode.Found);
         gatedAfterSignOut.Headers.Location!.PathAndQuery.Should().StartWith("/Account/Login");
     }

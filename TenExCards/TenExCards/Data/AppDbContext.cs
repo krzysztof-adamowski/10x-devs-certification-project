@@ -37,9 +37,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     /// </summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
-    /// <summary>Throwaway. Deleted by <c>S-01</c> along with its table. See <see cref="SpineProbe"/>.</summary>
-    public DbSet<SpineProbe> SpineProbes => Set<SpineProbe>();
-
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

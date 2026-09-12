@@ -1186,14 +1186,14 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [ ] 5.1 No occurrence of CircuitCheck, circuit-check, DbCheck, db-check or SpineProbe remains under TenExCards/, excluding TenExCards/Migrations/
-- [ ] 5.2 The model snapshot lost its SpineProbe block while InitialSpine and its Designer file are unchanged
-- [ ] 5.3 Nothing under context/changes/ or context/deployment/ was edited to satisfy the search
-- [ ] 5.4 dotnet build and dotnet test both pass
-- [ ] 5.5 The migration drops SpineProbes and contains no other table operation
-- [ ] 5.6 A local run applies it to the development database and SpineProbes is gone there
+- [x] 5.1 No occurrence of CircuitCheck, circuit-check, DbCheck, db-check or SpineProbe remains under TenExCards/, excluding TenExCards/Migrations/
+- [x] 5.2 The model snapshot lost its SpineProbe block while InitialSpine and its Designer file are unchanged
+- [x] 5.3 Nothing under context/changes/ or context/deployment/ was edited to satisfy the search
+- [x] 5.4 dotnet build and dotnet test both pass
+- [x] 5.5 The migration drops SpineProbes and contains no other table operation
+- [x] 5.6 A local run applies it to the development database and SpineProbes is gone there
 - [ ] 5.7 CI is green and the startup log applies exactly one pending migration
-- [ ] 5.8 Requests for the two retired routes return the not-found page
+- [x] 5.8 Requests for the two retired routes return the not-found page
 
 #### Manual
 
