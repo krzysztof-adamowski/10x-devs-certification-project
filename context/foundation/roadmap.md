@@ -3,7 +3,7 @@ project: "10xCards"
 version: 1
 status: draft
 created: 2026-09-02
-updated: 2026-09-10
+updated: 2026-09-12
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -58,10 +58,10 @@ reason to exist.
 
 | ID   | Change ID                | Outcome (user can …)                                             | Prerequisites    | PRD refs                                               | Status   |
 | ---- | ------------------------ | ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------ | -------- |
-| F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | in-progress |
-| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | in-progress |
-| F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | in-progress |
-| S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | proposed |
+| F-01 | `blazor-server-shell`    | (foundation) the deployed app serves an interactive Blazor page  | —                | NFR (2s acknowledgement), NFR (desktop browsers)        | done |
+| F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | done |
+| F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
+| S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | planning |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | proposed |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | proposed |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | proposed |
@@ -129,7 +129,12 @@ rather than reopening them.
   this establishes the host and nothing else, and every slice still builds its own surface. The
   secondary risk is carrying the scaffold's incidental decisions forward untouched while rewriting
   around them.
-- **Status:** in-progress
+- **Landed 2026-09-08:** Blazor Web App with **per-page interactivity** — pages are static-rendered
+  unless they carry `@rendermode InteractiveServer`, which is what lets `S-01`'s Identity pages write
+  cookies to the response without a carve-out. `app.UseHttpsRedirection()` was removed and the
+  platform is now the sole enforcement point (Open Roadmap Question 4). `CircuitCheck.razor` proves
+  the circuit is live and is deleted by `S-01`.
+- **Status:** done
 
 ### F-02: Persistence spine — provisioned database reachable from the deployed app
 
@@ -143,9 +148,11 @@ rather than reopening them.
 - **Parallel with:** F-01
 - **Blockers:** —
 - **Unknowns:**
-  - Which database provider and tier? The infrastructure risk register rules out auto-pausing tiers,
-    because the first query after an idle period can exceed the entire 2-second acknowledgement
-    budget — Owner: user (resolved downstream as course-work). Block: no.
+  - ~~Which database provider and tier? The infrastructure risk register rules out auto-pausing
+    tiers, because the first query after an idle period can exceed the entire 2-second
+    acknowledgement budget — Owner: user (resolved downstream as course-work). Block: no.~~
+    **Resolved 2026-09-10 in `F-02`:** EF Core 10.0.12 against **Azure SQL, S0 provisioned**. Full
+    reasoning in Open Roadmap Question 1; do not re-open the provider question.
 - **Risk:** Deliberately designs no **domain** schema — identity tables still arrive with `S-01` and
   the card entity with `S-02`. Two tables exist (`SpineProbes`, a throwaway `S-01` deletes, and
   `DataProtectionKeys`), and neither models anything about the product. Three recorded traps sit
@@ -153,7 +160,13 @@ rather than reopening them.
   settings inside infrastructure-as-code makes a routine, successful-looking deployment delete the
   connection string; and `Database.Migrate()` on the boot path means a bad migration takes the app
   down on a tier with no slot rollback, with no schema reversal available.
-- **Status:** in-progress
+- **Landed 2026-09-10:** `sql-tenexcards-plc` in `polandcentral` with **two** databases —
+  `sqldb-tenexcards` (S0 provisioned) for the app and `sqldb-tenexcards-dev` (Basic) for local
+  development, the split enforced by the contained user `tenexdev`. Key Vault `kv-tenexcards-plc`
+  holds the connection strings; the app reads a versionless Key Vault *reference*. The Data
+  Protection key ring now persists to `DataProtectionKeys` and survives a container restart — but is
+  stored **unencrypted**, which `S-01` closes rather than `F-02`.
+- **Status:** done
 
 ### F-03: Merges deploy themselves
 
@@ -166,24 +179,36 @@ rather than reopening them.
   highest-likelihood deployment risks on record: a nested archive that deploys successfully and then
   fails at runtime, and the absence of any slot-based rollback at this tier.
 - **Prerequisites:** F-01
-- **Parallel with:** S-01
+- **Parallel with:** — (was planned parallel with `S-01`; `F-03` finished first, so the two never
+  overlapped)
 - **Blockers:** —
 - **Unknowns:** —
-- **Carried forward from F-01 (2026-09-08):** the packaging step must be an executable script, not
-  prose. `TenExCards/AGENTS.md` now forbids `Compress-Archive` (Windows PowerShell 5.1 writes
-  backslash separators into nested entries) and requires three pre-upload assertions —
-  `TenExCards.dll` at the archive root, no entry prefixed `publish/`, no entry containing a
-  backslash. F-01 verified all three by hand and committed no script, so today the rule depends on
-  someone reading carefully. Its own failure mode is that a wrong archive **deploys successfully**
-  and then serves a page whose every asset 404s — there is no signal to catch it. Whatever F-03
-  builds, the assertions must fail the job non-zero. Running the pack on Linux avoids the separator
-  problem entirely but not the other two assertions. Detail: the 2026-09-08 record in
-  `context/deployment/deploy-plan.md`.
+- **Carried forward from F-01 (2026-09-08), discharged by this slice:** the packaging step had to
+  become an executable script rather than prose. `TenExCards/AGENTS.md` forbids `Compress-Archive`
+  (Windows PowerShell 5.1 writes backslash separators into nested entries) and requires pre-upload
+  assertions; F-01 verified them by hand and committed no script, so the rule depended on someone
+  reading carefully. `scripts/pack.py` now enforces them and is the authority on the list, which has
+  since grown to **four** — `TenExCards.dll` at the archive root, no entry prefixed `publish/`, no
+  entry containing a backslash, and at least one entry under `wwwroot/`. The failure mode that
+  justified all of it stands: a wrong archive **deploys successfully** and then serves a page whose
+  every asset 404s, with no signal to catch it, which is why `scripts/verify_deploy.py` runs after
+  every deploy. Running the pack on Linux avoids the separator problem but none of the other three.
+  Detail: the 2026-09-08 record in `context/deployment/deploy-plan.md`.
 - **Risk:** The only foundation here not strictly required before the next slice — manual deployment
-  already works. It earns its place on repetition: with six slices left and a deadline twelve days
-  out, every one of them gets deployed and verified, and the archive-shape trap is a once-per-deploy
-  chance to lose an evening. If time compresses, this is the first foundation to Park.
-- **Status:** in-progress
+  already worked. It earned its place on repetition: every remaining slice gets deployed and
+  verified, and the archive-shape trap is a once-per-deploy chance to lose an evening. It was
+  nominated as the first foundation to Park if time compressed; it was not parked, and that option
+  is now spent.
+- **Landed 2026-09-11:** `.github/workflows/deploy.yml` deploys every push to `main`, as a **thin
+  caller** over `scripts/pack.py` then `scripts/verify_deploy.py` — the same two commands a human
+  runs, so CI cannot drift from the documented rules without those scripts changing. Auth is OIDC
+  with **no stored Azure credential**; the federated credential is exact-match on an immutable
+  subject, which is why the app registration deliberately carries two credentials. Three settings are
+  deliberate and must not be "fixed": no `-o` on publish, `--track-status false` on deploy, and
+  `permissions` of exactly `id-token: write` + `contents: read`. Infrastructure, app settings, and
+  redeploying a prior archive stay human work. Phase 5's cold-restore rehearsal was re-performed
+  2026-09-12 against a real prior artifact without mutating production.
+- **Status:** done
 
 ## Slices
 
@@ -214,7 +239,7 @@ rather than reopening them.
   weigh. This is also the first slice to persist **account-scoped** data, so the test project is
   created here and its tests ship alongside this code; `F-02` touched persistence first but
   contains no deterministic rule to test.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-02: Learner turns a pasted passage into saved cards
 
@@ -312,10 +337,10 @@ rather than reopening them.
 
 | Roadmap ID | Change ID                | Suggested issue title                                            | Ready for `/10x-plan` | Notes                                                 |
 | ---------- | ------------------------ | ---------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
-| F-01       | `blazor-server-shell`    | Replace the API scaffold with an interactive Blazor Server shell | yes                   | Run `/10x-plan blazor-server-shell`                   |
-| F-02       | `persistence-spine`      | Stand up a provisioned database reachable from the deployed app  | yes                   | Run `/10x-plan persistence-spine`; parallel with F-01 |
-| F-03       | `deploy-pipeline`        | Deploy automatically on merge to main                            | no                    | Needs F-01                                            |
-| S-01       | `accounts-and-sessions`  | Register, sign in, and sign out of a private account             | no                    | Needs F-01 and F-02                                   |
+| F-01       | `blazor-server-shell`    | Replace the API scaffold with an interactive Blazor Server shell | —                     | Done 2026-09-08 — see `## Done`                       |
+| F-02       | `persistence-spine`      | Stand up a provisioned database reachable from the deployed app  | —                     | Done 2026-09-10 — see `## Done`                       |
+| F-03       | `deploy-pipeline`        | Deploy automatically on merge to main                            | —                     | Done 2026-09-11 — see `## Done`                       |
+| S-01       | `accounts-and-sessions`  | Register, sign in, and sign out of a private account             | planned               | Plan reviewed 2026-09-12; next `/10x-implement`       |
 | S-02       | `passage-to-saved-cards` | Paste a passage and finish with accepted cards saved             | no                    | Needs S-01 — north star                               |
 | S-03       | `edit-before-accepting`  | Edit a candidate card before accepting it                        | no                    | Needs S-02                                            |
 | S-04       | `manage-saved-cards`     | Find a saved card in order to edit or delete it                  | no                    | Needs S-02                                            |
