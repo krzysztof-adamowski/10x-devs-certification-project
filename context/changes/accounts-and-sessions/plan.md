@@ -1209,14 +1209,14 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [ ] 6.1 Neither AGENTS.md nor roadmap.md describes CircuitCheck, DbCheck or SpineProbe in the present tense
-- [ ] 6.2 The persistence paragraph and the budget rule each exist at exactly one, new, location
-- [ ] 6.3 All four roadmap S-01 locations agree and the inactivity-window question reads resolved in both places it appears
-- [ ] 6.4 deploy-plan.md carries no runnable /db-check command, and its dated measurements are otherwise unedited
-- [ ] 6.5 No file-and-line citation was introduced in any edited document
+- [x] 6.1 Neither AGENTS.md nor roadmap.md describes CircuitCheck, DbCheck or SpineProbe in the present tense — c0751b0
+- [x] 6.2 The persistence paragraph and the budget rule each exist at exactly one, new, location — c0751b0
+- [x] 6.3 All four roadmap S-01 locations agree and the inactivity-window question reads resolved in both places it appears — c0751b0
+- [x] 6.4 deploy-plan.md carries no runnable /db-check command, and its dated measurements are otherwise unedited — c0751b0
+- [x] 6.5 No file-and-line citation was introduced in any edited document — c0751b0
 
 #### Manual
 
-- [ ] 6.6 AGENTS.md reads start to finish with no dangling antecedents or references to deleted sections
-- [ ] 6.7 All records agree on what exists, what it is called, and how the key identifier reaches the app
-- [ ] 6.8 The PRD's open question reads as decided rather than owned by the user
+- [x] 6.6 AGENTS.md reads start to finish with no dangling antecedents or references to deleted sections — c0751b0
+- [x] 6.7 All records agree on what exists, what it is called, and how the key identifier reaches the app — c0751b0
+- [x] 6.8 The PRD's open question reads as decided rather than owned by the user — c0751b0
