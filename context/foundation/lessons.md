@@ -43,3 +43,18 @@
   changes goes in its own **unscoped** `chore:` commit — committing it under either change's scope
   claims the other's work.
 - **Applies to**: plan, implement, impl-review
+
+## Verify a restart from the log, never from the first 200
+
+- **Context**: Any check whose meaning depends on a process having actually restarted — restart-survival
+  verification of Data Protection keys, auth cookies or caches — on App Service or any platform where a
+  load balancer can keep serving the old instance.
+- **Problem**: On 2026-09-12 (`accounts-and-sessions` phase 1) `az webapp restart` was followed by a poll
+  returning `200` within one second — the old container still serving. The genuine `Application started`
+  line appeared roughly two minutes later. Acting on that first `200` would have exercised a key ring that
+  was never reloaded: the check passes while proving nothing, and "confirms" a persistence guarantee that
+  was never actually tested.
+- **Rule**: Never treat a successful HTTP response as evidence that a restart happened. Confirm it from the
+  platform's own startup evidence — a fresh `Application started` line timestamped after the restart was
+  issued — and only then perform the step whose validity depends on it.
+- **Applies to**: plan, implement, impl-review
