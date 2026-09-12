@@ -1126,19 +1126,19 @@ only because no account exists yet, which is the reason that phase is first.
 
 #### Automated
 
-- [x] 2.1 dotnet build succeeds with the Identity EF package pinned
-- [x] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine
-- [x] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables
-- [x] 2.4 The migration creates UserNameIndex as unique
-- [x] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes
-- [x] 2.6 A local run applies it to the development database and its history contains it
-- [ ] 2.7 CI is green and the startup log applies exactly one pending migration, then reports success
-- [ ] 2.8 verify_deploy.py passes against the deployed site
+- [x] 2.1 dotnet build succeeds with the Identity EF package pinned — 4f9e09a
+- [x] 2.2 dotnet tool restore succeeds and migrations list shows the new migration after InitialSpine — 4f9e09a
+- [x] 2.3 The migration creates the four AspNet tables and none of the role or passkey tables — 4f9e09a
+- [x] 2.4 The migration creates UserNameIndex as unique — 4f9e09a
+- [x] 2.5 The migration touches neither DataProtectionKeys nor SpineProbes — 4f9e09a
+- [x] 2.6 A local run applies it to the development database and its history contains it — 4f9e09a
+- [x] 2.7 CI is green and the startup log applies exactly one pending migration, then reports success — 4f9e09a
+- [x] 2.8 verify_deploy.py passes against the deployed site — 4f9e09a
 
 #### Manual
 
-- [ ] 2.9 The four AspNet tables exist in the app database and the encrypted key row is intact
-- [ ] 2.10 SpineProbes is still present and /db-check still round-trips
+- [x] 2.9 The four AspNet tables exist in the app database and the encrypted key row is intact — 4f9e09a
+- [x] 2.10 SpineProbes is still present and /db-check still round-trips — 4f9e09a
 
 ### Phase 3: Register, sign in, sign out
 
