@@ -422,3 +422,6 @@ first milestone. Closure entries are written when a milestone closes.)
 
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to
 `done` — when a change whose `Change ID` matches the item is archived.)
+
+- **F-01: (foundation) the deployed app serves an interactive Blazor Server page over a live
+  circuit, and the template sample route is gone.** — Archived 2026-09-12 → `context/archive/2026-09-08-blazor-server-shell/`. Lesson: —.
