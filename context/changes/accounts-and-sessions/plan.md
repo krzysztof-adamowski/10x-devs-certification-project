@@ -1110,17 +1110,17 @@ only because no account exists yet, which is the reason that phase is first.
 - [x] 1.6 The template declares a key-identifier output alongside its existing five
 - [x] 1.7 The key-identifier app setting is byte-identical to that deployment output, compared directly, before the encrypting build is merged
 - [x] 1.8 dotnet build succeeds with the Data Protection Key Vault package pinned
-- [ ] 1.9 The key-minting boot's log does not contain No XML encryptor configured
-- [ ] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element
+- [x] 1.9 The key-minting boot's log does not contain No XML encryptor configured
+- [x] 1.10 The new DataProtectionKeys row is ciphertext, with no readable value element
 
 #### Manual
 
-- [ ] 1.11 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400
-- [ ] 1.12 The site still serves after the app setting is applied and before the encrypting build is merged
-- [ ] 1.13 The pre-change key row's identifier and length are recorded and confirmed plaintext
-- [ ] 1.14 Post-change: the render-restart-submit check passes against the encrypted ring
-- [ ] 1.15 Exactly one key row exists afterwards, and it is not the recorded one
-- [ ] 1.16 The what-if reconciliation is written into change.md as predicted against observed
+- [x] 1.11 Pre-change: a form rendered before a restart is accepted after it, not rejected with 400
+- [x] 1.12 The site still serves after the app setting is applied and before the encrypting build is merged
+- [x] 1.13 The pre-change key row's identifier and length are recorded and confirmed plaintext
+- [x] 1.14 Post-change: the render-restart-submit check passes against the encrypted ring
+- [x] 1.15 Exactly one key row exists afterwards, and it is not the recorded one
+- [x] 1.16 The what-if reconciliation is written into change.md as predicted against observed
 
 ### Phase 2: Identity data model
 

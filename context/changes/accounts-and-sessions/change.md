@@ -127,6 +127,49 @@ It was the old container being torn down mid-request. Recorded because the *timi
 match for a credential rotation and the next operator to see it will reach for that explanation
 first. Retry before diagnosing; a rotated password does not heal on the following boot.
 
+### Phase 1 finding: `<value>` is present in an ENCRYPTED key row, and the obvious check misreads it
+
+Criterion 1.10 reads "contains an `<encryptedKey>` element and no readable `<value>` element". The
+obvious implementation — `Xml LIKE '%<value>%'` — **reports a false positive on a correctly encrypted
+row**, and did here.
+
+`<value>` appears in *both* forms. In the plaintext form it is the master key itself. In the
+encrypted form it is the ciphertext payload, nested inside `<encryptedKey>`. Matching the string
+alone cannot tell them apart, and reading it as a failure would have led to re-running an
+irreversible deletion that had already worked.
+
+The structural check that *does* discriminate, and its result on the new row:
+
+| Probe | Result |
+| --- | --- |
+| `LIKE '%unencrypted form%'` — the comment the plaintext writer always emits | **absent** |
+| `LIKE '%<masterKey>%'` — the plaintext container element | **absent** |
+| `LIKE '%AzureKeyVaultXmlDecryptor%'` | present |
+| `LIKE '%<encryptedSecret%'` | present |
+| `CHARINDEX` of `<value>` vs `<encryptedKey>` … `</encryptedKey>` | `1435`, between `863` and `1878` — **nested inside**, so it is the payload |
+
+The decisive probes are the first two. ASP.NET Core writes a literal
+`Warning: the key below is in an unencrypted form.` comment beside a plaintext master key; its
+absence, together with the absence of `<masterKey>`, is what proves the key material is not readable.
+**Assert on those, not on `<value>`.**
+
+### Phase 1 finding: the encrypted ring survives a restart, and is unwrapped rather than re-minted
+
+Change 7, run against the encrypted ring after the plaintext row was discarded.
+
+| Step | Observation |
+| --- | --- |
+| Render `/db-check` | `200`, token 155 chars, **9** probe rows |
+| Restart | fresh `Application started` at `2026-09-12T09:55:39Z` |
+| Submit the pre-restart form | **`200`**, no rejection, probe rows **9 → 10** |
+| `DataProtectionKeys` afterwards | still **one** row, still `Id = 2` |
+
+**The unchanged row is the strongest part of this result and is worth more than the `200`.** If the
+app had been unable to unwrap the key through Key Vault, Data Protection would have minted a
+replacement and the table would show a third key. It did not. So the restart did not merely leave the
+ciphertext in place — the app read it back, called Key Vault to unwrap it, and recovered the same
+ring. That is the property `F-02` established, now re-established through an encryption layer.
+
 ### Phase 1 finding: pre-change Data Protection key row
 
 Recorded before anything was changed, so the after state has something to be compared against.
@@ -141,3 +184,16 @@ Read from `sqldb-tenexcards` on 2026-09-12:
 
 Exactly one row. This is the row change 6 discards; the row that replaces it must have a different
 `Id` and must be ciphertext.
+
+**After the change**, for comparison — one row, and not this one:
+
+| Field | Before | After |
+| --- | --- | --- |
+| `Id` | `1` | **`2`** |
+| `FriendlyName` | `key-f3bfba0e-5050-4374-a085-8797b359289a` | `key-73a4c584-d073-4dce-a6bf-277a82d63f70` |
+| `LEN(Xml)` | `887` | `1942` |
+| Key material | plaintext | **wrapped with `dataprotection-key`** |
+
+`DELETE FROM DataProtectionKeys` reported `1` row affected and `0` remaining, the container was
+restarted, and the next protect operation minted `Id = 2`. The growth from 887 to 1942 bytes is the
+Key Vault encryption envelope — the `kid`, the wrapped key, the IV and the ciphertext.
