@@ -1,10 +1,10 @@
 ---
 change_id: card-bounds
 title: Card length bounds become compile-time constants
-status: implementing
+status: archived
 created: 2026-09-13
 updated: 2026-09-13
-archived_at: null
+archived_at: 2026-09-13T20:37:30Z
 ---
 
 ## Notes
