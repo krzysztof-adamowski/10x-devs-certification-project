@@ -62,7 +62,7 @@ reason to exist.
 | F-02 | `persistence-spine`      | (foundation) the deployed app reads and writes a real database   | —                | NFR (accepted card durable), Guardrail (no silent loss) | done |
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | done |
-| S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | in-progress |
+| S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | done |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | done |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | done |
 | S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | done |
@@ -300,7 +300,7 @@ rather than reopening them.
   `503` as readily as `429`; and two Blazor traps recorded in `TenExCards/AGENTS.md` — `Assets` is a
   protected `ComponentBase` property rather than an injectable service, and a component must leave
   its state consistent *before* an await, because the renderer runs at the first one that yields.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-03: Learner edits a candidate before accepting it
 
@@ -530,3 +530,7 @@ first milestone. Closure entries are written when a milestone closes.)
   Archived 2026-09-13 → `context/archive/2026-09-13-manage-saved-cards/`. Lesson: —.
 - **S-05: user can write a card by hand and save it, without generating one first.** —
   Archived 2026-09-13 → `context/archive/2026-09-13-manual-card-entry/`. Lesson: —.
+- **S-02: user can paste a passage with an optional focus hint, watch bounded progress while it
+  is worked on, review the resulting candidates one at a time, and accept or reject each — with every
+  accepted card saved immediately to their own space.** —
+  Archived 2026-09-13 → `context/archive/2026-09-12-passage-to-saved-cards/`. Lesson: —.
