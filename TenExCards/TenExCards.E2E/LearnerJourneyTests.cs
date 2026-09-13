@@ -134,6 +134,22 @@ public class LearnerJourneyTests(AppUnderTest app) : IClassFixture<AppUnderTest>
     }
 
     [Fact]
+    public async Task Learner_ManualEntryLink_IsOfferedWhileComposingAndGoneDuringTriage()
+    {
+        var page = await RegisterAndSignInAsync();
+        await page.GotoAsync("/generate");
+
+        var link = page.GetByRole(AriaRole.Link, new() { Name = "Or write a card yourself" });
+        await Assertions.Expect(link).ToBeVisibleAsync();
+
+        await GenerateAsync(page);
+
+        // Enhanced navigation is a fetch and never fires beforeunload, so this link left on the
+        // triage screen would discard the untriaged batch with no warning at all.
+        await Assertions.Expect(link).Not.ToBeVisibleAsync();
+    }
+
+    [Fact]
     public async Task Learner_CancellingAnEdit_RestoresTheWordingAndEveryOriginalAction()
     {
         var page = await RegisterAndSignInAsync();

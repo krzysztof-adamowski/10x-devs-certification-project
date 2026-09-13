@@ -460,22 +460,22 @@ success criterion, not an assumption.
 
 #### Automated
 
-- [x] 2.1 Solution builds
-- [x] 2.2 Tests pass
-- [ ] 2.3 Suite passes with `secrets.json` moved aside, the way CI sees it
-- [x] 2.4 `CardEntry.razor` carries neither `@rendermode` nor `[AllowAnonymous]`
-- [x] 2.5 The page is under `Components/Pages/`, not `Components/Account/Pages/`
-- [ ] 2.6 No new migration implied
+- [x] 2.1 Solution builds — 4736dfe
+- [x] 2.2 Tests pass — 4736dfe
+- [x] 2.3 Suite passes with `secrets.json` moved aside, the way CI sees it
+- [x] 2.4 `CardEntry.razor` carries neither `@rendermode` nor `[AllowAnonymous]` — 4736dfe
+- [x] 2.5 The page is under `Components/Pages/`, not `Components/Account/Pages/` — 4736dfe
+- [x] 2.6 No new migration implied
 
 #### Manual
 
-- [ ] 2.7 A hand-written card appears in `sqldb-tenexcards-dev` with `Origin = 2` and the right `OwnerId`
-- [ ] 2.8 The form returns empty and names the this-visit count
-- [ ] 2.9 A refresh after a save writes no second card, confirmed by row count
-- [ ] 2.10 An over-length answer is refused, the limit named, the text retained
-- [ ] 2.11 The manual link is present while composing and absent during triage
-- [ ] 2.12 Leaving `/generate` mid-triage still warns
-- [ ] 2.13 The guidance names two rules, neither requiring a source passage
+- [x] 2.7 A hand-written card appears in `sqldb-tenexcards-dev` with `Origin = 2` and the right `OwnerId`
+- [x] 2.8 The form returns empty and names the this-visit count
+- [x] 2.9 A refresh after a save writes no second card, confirmed by row count
+- [x] 2.10 An over-length answer is refused, the limit named, the text retained
+- [x] 2.11 The manual link is present while composing and absent during triage
+- [x] 2.12 Leaving `/generate` mid-triage still warns
+- [x] 2.13 The guidance names two rules, neither requiring a source passage
 
 ### Phase 3: Deploy, verify, and close the record
 
