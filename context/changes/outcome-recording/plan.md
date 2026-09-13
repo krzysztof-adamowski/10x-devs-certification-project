@@ -687,10 +687,10 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [x] 2.1 Solution builds
-- [x] 2.2 Test suite is green
-- [x] 2.3 `ITriageRecorder` resolves from the real pipeline
-- [x] 2.4 No regression in `TriageSessionTests`, `CardOwnershipTests`, `CandidateEditTests`
+- [x] 2.1 Solution builds — 49cfb8f
+- [x] 2.2 Test suite is green — 49cfb8f
+- [x] 2.3 `ITriageRecorder` resolves from the real pipeline — 49cfb8f
+- [x] 2.4 No regression in `TriageSessionTests`, `CardOwnershipTests`, `CandidateEditTests` — 49cfb8f
 
 #### Manual
 
