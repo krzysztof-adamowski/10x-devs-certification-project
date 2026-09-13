@@ -1079,19 +1079,19 @@ this phase is sequenced first.
 
 #### Automated
 
-- [x] 3.1 Solution builds
-- [x] 3.2 Tests pass
-- [x] 3.3 `AuthBoundaryTests` shows `/generate` answering `302` to the login path
-- [x] 3.4 No passage-bearing field is persisted or logged
+- [x] 3.1 Solution builds — 387cc86
+- [x] 3.2 Tests pass — 387cc86
+- [x] 3.3 `AuthBoundaryTests` shows `/generate` answering `302` to the login path — 387cc86
+- [x] 3.4 No passage-bearing field is persisted or logged — 387cc86
 
 #### Manual
 
-- [x] 3.5 Full local loop: paste, triage, summary counts match
-- [x] 3.6 Over-length refused both by the disabled control and by the handler's re-check
-- [x] 3.7 Passage cleared on success, retained on a forced failure
-- [x] 3.8 Accept and reject equal in prominence, neither confirming
-- [x] 3.9 Refresh mid-triage warns, then discards the untriaged remainder
-- [x] 3.10 Locally accepted cards present in `sqldb-tenexcards-dev` with the correct `OwnerId`
+- [x] 3.5 Full local loop: paste, triage, summary counts match — 387cc86
+- [x] 3.6 Over-length refused both by the disabled control and by the handler's re-check — 387cc86
+- [x] 3.7 Passage cleared on success, retained on a forced failure — 387cc86
+- [x] 3.8 Accept and reject equal in prominence, neither confirming — 387cc86
+- [x] 3.9 Refresh mid-triage warns, then discards the untriaged remainder — 387cc86
+- [x] 3.10 Locally accepted cards present in `sqldb-tenexcards-dev` with the correct `OwnerId` — 387cc86
 
 ### Phase 4: Deploy and verify on the live instance
 

@@ -31,6 +31,11 @@ public class IdentityConfigurationTests(TenExCardsWebApplicationFactory factory)
         {
             builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=unused;Database=unused;");
             builder.UseSetting("Testing:SkipStartupMigration", "true");
+
+            // Every setting Program.cs guards must be set here, because this factory is bare by
+            // design. Omitting it passes locally — user-secrets satisfy the guard in Development —
+            // and fails only in CI, where there are none.
+            builder.UseSetting("Gemini:ApiKey", "test-key-not-a-real-credential");
         });
 
         var environment = bareFactory.Services.GetRequiredService<IHostEnvironment>();

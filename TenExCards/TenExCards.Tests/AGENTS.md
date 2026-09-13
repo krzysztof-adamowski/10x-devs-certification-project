@@ -92,3 +92,37 @@ would share a real one.
 Stub the **data provider** and the **key protector**, and nothing else. When the LLM client arrives
 in `S-02` it becomes the only other test double — it is stubbed because a real model response is
 non-deterministic, not because calling out is inconvenient.
+
+## A green local run is not a green CI run
+
+`WebApplication.CreateBuilder` loads **user-secrets** in Development, and `WebApplicationFactory`
+runs in Development. So every setting `Program.cs` guards is satisfied on a development machine by
+`secrets.json` whether or not the test supplies it. CI has no user-secrets. A test that boots the
+real pipeline without setting what the pipeline demands therefore **passes locally and fails only in
+CI** — which on this repository means a failed deploy, since `Test` gates it.
+
+This is not hypothetical: it happened on 2026-09-13. `S-02` added an unconditional `Gemini:ApiKey`
+guard, `TenExCardsWebApplicationFactory` and `MigrationGuardTests` were both given a dummy value,
+and `IdentityConfigurationTests` — which builds its own bare factory — was missed. 58/58 locally,
+one failure in CI, deploy stopped at `Test`.
+
+**Two rules follow.**
+
+- Any test constructing `new WebApplicationFactory<Program>()` directly must set **every** guarded
+  setting: `ConnectionStrings:DefaultConnection`, `Testing:SkipStartupMigration` where the migration
+  must be skipped, and `Gemini:ApiKey`. Adding a guard to `Program.cs` means visiting all of them.
+  There are currently two such bare factories; `grep -rn "new WebApplicationFactory<Program>"` finds
+  them.
+- Before pushing anything that touches `Program.cs`'s configuration, run the suite the way CI sees
+  it — with the secret store moved aside:
+
+  ```powershell
+  $dir = Join-Path $env:APPDATA 'Microsoft/UserSecrets/tenexcards-9f3c1a7e-4b02-4d18-8c55-persistence'
+  Rename-Item (Join-Path $dir 'secrets.json') 'secrets.json.away'
+  try     { dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj }
+  finally { Rename-Item (Join-Path $dir 'secrets.json.away') 'secrets.json' }
+  ```
+
+  The `finally` matters: leaving the store renamed breaks every later local run in a way that looks
+  like a missing connection string.
+
