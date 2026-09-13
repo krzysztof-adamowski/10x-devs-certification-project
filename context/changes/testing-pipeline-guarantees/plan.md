@@ -767,12 +767,12 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 6.1 The suite passes
-- [x] 6.2 `verify_deploy.py --self-test` exits `0`
-- [x] 6.3 §6.1 no longer matches `TBD`
+- [x] 6.1 The suite passes — 3710d2b
+- [x] 6.2 `verify_deploy.py --self-test` exits `0` — 3710d2b
+- [x] 6.3 §6.1 no longer matches `TBD` — 3710d2b
 
 #### Manual
 
-- [x] 6.4 §6.1 answers "how do I add a pipeline test?" standalone
-- [x] 6.5 `TenExCards/AGENTS.md` no longer implies a human guards the `.AllowAnonymous()` count
-- [x] 6.6 The F4 re-deferral states its residue plainly
+- [x] 6.4 §6.1 answers "how do I add a pipeline test?" standalone — 3710d2b
+- [x] 6.5 `TenExCards/AGENTS.md` no longer implies a human guards the `.AllowAnonymous()` count — 3710d2b
+- [x] 6.6 The F4 re-deferral states its residue plainly — 3710d2b
