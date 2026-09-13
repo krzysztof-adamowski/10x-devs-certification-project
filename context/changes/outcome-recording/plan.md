@@ -704,14 +704,14 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [x] 3.1 Solution builds and the suite stays green
+- [x] 3.1 Solution builds and the suite stays green — 16ce78b
 
 #### Manual
 
-- [x] 3.2 `scripts/outcome_rates.sql` runs to completion against `sqldb-tenexcards-dev`, five result sets
-- [x] 3.3 Rates match a hand-count of the dev rows
-- [x] 3.4 Deleting a generated dev card moves the origin share and leaves the edit rate unchanged
-- [x] 3.5 No connection string or password in any tracked file
+- [x] 3.2 `scripts/outcome_rates.sql` runs to completion against `sqldb-tenexcards-dev`, five result sets — 16ce78b
+- [x] 3.3 Rates match a hand-count of the dev rows — 16ce78b
+- [x] 3.4 Deleting a generated dev card moves the origin share and leaves the edit rate unchanged — 16ce78b
+- [x] 3.5 No connection string or password in any tracked file — 16ce78b
 
 ### Phase 4: Deploy and verify live
 
