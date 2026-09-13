@@ -46,11 +46,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
         builder.Entity<Card>(card =>
         {
-            // Mirrored by Generation:MaxPromptCharacters/MaxAnswerCharacters and asserted equal in
-            // CandidateBoundsTests — the in-memory provider ignores HasMaxLength, so nothing else
-            // would catch a drift, and a larger configured value is a truncation error mid-triage.
-            card.Property(c => c.Prompt).IsRequired().HasMaxLength(500);
-            card.Property(c => c.Answer).IsRequired().HasMaxLength(1000);
+            // See CardBounds: these are the numbers the migration wrote, and why they are constants.
+            card.Property(c => c.Prompt).IsRequired().HasMaxLength(CardBounds.MaxPromptCharacters);
+            card.Property(c => c.Answer).IsRequired().HasMaxLength(CardBounds.MaxAnswerCharacters);
 
             card.Property(c => c.OwnerId).IsRequired();
             card.HasIndex(c => c.OwnerId);

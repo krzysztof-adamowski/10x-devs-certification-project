@@ -1,3 +1,5 @@
+using TenExCards.Data;
+
 namespace TenExCards.Generation;
 
 /// <summary>
@@ -8,16 +10,14 @@ public static class CandidateBounds
 {
     /// <summary>Drops over-long candidates, preserving order. Dropping, not truncating: a clipped
     /// card reads as a defect the learner cannot fix.</summary>
-    public static IReadOnlyList<CandidateCard> WithinColumnLimits(
-        IReadOnlyList<CandidateCard> candidates,
-        GenerationOptions options)
+    public static IReadOnlyList<CandidateCard> WithinColumnLimits(IReadOnlyList<CandidateCard> candidates)
     {
         var kept = new List<CandidateCard>(candidates.Count);
 
         foreach (var candidate in candidates)
         {
-            if (candidate.Prompt.Length <= options.MaxPromptCharacters
-                && candidate.Answer.Length <= options.MaxAnswerCharacters)
+            if (candidate.Prompt.Length <= CardBounds.MaxPromptCharacters
+                && candidate.Answer.Length <= CardBounds.MaxAnswerCharacters)
             {
                 kept.Add(candidate);
             }

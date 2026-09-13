@@ -56,8 +56,6 @@ builder.Services.AddOptions<GenerationOptions>()
         "Generation:MinCandidates must be at least 1 and no greater than Generation:MaxCandidates.")
     .Validate(o => o.MaxPassageCharacters > 0 && o.MaxFocusHintCharacters > 0 && o.WordsPerCandidate > 0,
         "Generation:MaxPassageCharacters, MaxFocusHintCharacters and WordsPerCandidate must be positive.")
-    .Validate(o => o.MaxPromptCharacters > 0 && o.MaxAnswerCharacters > 0,
-        "Generation:MaxPromptCharacters and MaxAnswerCharacters must be positive; they mirror Card's HasMaxLength.")
     .Validate(o => o.TimeoutSeconds > 0, "Generation:TimeoutSeconds must be positive.")
     .ValidateOnStart();
 builder.Services.Configure<GeminiOptions>(

@@ -1,7 +1,6 @@
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using TenExCards.Data;
 using TenExCards.Generation;
 
@@ -10,8 +9,6 @@ namespace TenExCards.Tests;
 public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
     : IClassFixture<TenExCardsWebApplicationFactory>
 {
-    private static readonly GenerationOptions Options = new();
-
     private static CandidateCard Card(int promptLength, int answerLength) =>
         new(new string('p', promptLength), new string('a', answerLength));
 
@@ -20,7 +17,7 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
     {
         var candidates = new List<CandidateCard> { Card(500, 1_000) };
 
-        CandidateBounds.WithinColumnLimits(candidates, Options).Should().HaveCount(1);
+        CandidateBounds.WithinColumnLimits(candidates).Should().HaveCount(1);
     }
 
     [Fact]
@@ -28,7 +25,7 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
     {
         var candidates = new List<CandidateCard> { Card(501, 10) };
 
-        CandidateBounds.WithinColumnLimits(candidates, Options).Should().BeEmpty();
+        CandidateBounds.WithinColumnLimits(candidates).Should().BeEmpty();
     }
 
     [Fact]
@@ -36,7 +33,7 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
     {
         var candidates = new List<CandidateCard> { Card(10, 1_001) };
 
-        CandidateBounds.WithinColumnLimits(candidates, Options).Should().BeEmpty();
+        CandidateBounds.WithinColumnLimits(candidates).Should().BeEmpty();
     }
 
     [Fact]
@@ -46,7 +43,7 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
         var bad = Card(501, 10);
         var good2 = new CandidateCard("Second question?", "B");
 
-        var kept = CandidateBounds.WithinColumnLimits([good1, bad, good2], Options);
+        var kept = CandidateBounds.WithinColumnLimits([good1, bad, good2]);
 
         kept.Should().Equal(good1, good2);
     }
@@ -54,37 +51,26 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
     [Fact]
     public void WithinColumnLimits_DropsRatherThanTruncates()
     {
-        var kept = CandidateBounds.WithinColumnLimits([Card(600, 10)], Options);
+        var kept = CandidateBounds.WithinColumnLimits([Card(600, 10)]);
 
         kept.Should().BeEmpty();
-        kept.Should().NotContain(c => c.Prompt.Length == Options.MaxPromptCharacters);
+        kept.Should().NotContain(c => c.Prompt.Length == CardBounds.MaxPromptCharacters);
     }
 
     [Fact]
-    public void ConfiguredLimits_MatchTheEntitysColumnLengths()
+    public void CardBounds_MatchTheWidthsTheMigrationWrote()
     {
-        // Nothing else catches this: the in-memory provider ignores HasMaxLength.
+        // The literals are the point: AddCards wrote nvarchar(500)/nvarchar(1000) to a live database,
+        // and a const cannot be widened after the fact. Asserting against CardBounds instead would be
+        // a tautology, since HasMaxLength reads the same constant.
         using var scope = factory.Services.CreateScope();
-        var options = scope.ServiceProvider.GetRequiredService<IOptions<GenerationOptions>>().Value;
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var card = db.Model.FindEntityType(typeof(Card))!;
         var promptLength = card.FindProperty(nameof(Data.Card.Prompt))!.GetMaxLength();
         var answerLength = card.FindProperty(nameof(Data.Card.Answer))!.GetMaxLength();
 
-        promptLength.Should().Be(options.MaxPromptCharacters,
-            "Generation:MaxPromptCharacters and Card.Prompt's HasMaxLength are one number in two places");
-        answerLength.Should().Be(options.MaxAnswerCharacters,
-            "Generation:MaxAnswerCharacters and Card.Answer's HasMaxLength are one number in two places");
-    }
-
-    [Fact]
-    public void ClassDefaults_MatchTheConfiguredValues()
-    {
-        using var scope = factory.Services.CreateScope();
-        var configured = scope.ServiceProvider.GetRequiredService<IOptions<GenerationOptions>>().Value;
-
-        Options.MaxPromptCharacters.Should().Be(configured.MaxPromptCharacters);
-        Options.MaxAnswerCharacters.Should().Be(configured.MaxAnswerCharacters);
+        promptLength.Should().Be(500, "Card.Prompt is nvarchar(500) in the AddCards migration");
+        answerLength.Should().Be(1_000, "Card.Answer is nvarchar(1000) in the AddCards migration");
     }
 }

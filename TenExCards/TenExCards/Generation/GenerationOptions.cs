@@ -17,11 +17,6 @@ public class GenerationOptions
 
     public int WordsPerCandidate { get; set; } = 200;
 
-    // These two mirror Card's HasMaxLength. CandidateBoundsTests asserts the equality, because the
-    // EF in-memory provider ignores HasMaxLength and nothing else would catch a drift.
-    public int MaxPromptCharacters { get; set; } = 500;
-
-    public int MaxAnswerCharacters { get; set; } = 1_000;
 
     public int TimeoutSeconds { get; set; } = 30;
 }

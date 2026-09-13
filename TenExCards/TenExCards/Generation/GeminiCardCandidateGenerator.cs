@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
+using TenExCards.Data;
 
 namespace TenExCards.Generation;
 
@@ -163,8 +164,8 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
                   "items": {
                     "type": "object",
                     "properties": {
-                      "prompt": { "type": "string", "maxLength": {{_options.MaxPromptCharacters}} },
-                      "answer": { "type": "string", "maxLength": {{_options.MaxAnswerCharacters}} }
+                      "prompt": { "type": "string", "maxLength": {{CardBounds.MaxPromptCharacters}} },
+                      "answer": { "type": "string", "maxLength": {{CardBounds.MaxAnswerCharacters}} }
                     },
                     "required": ["prompt", "answer"],
                     "additionalProperties": false
@@ -215,7 +216,7 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
 
         IReadOnlyList<CandidateCard> kept = candidates.Take(_options.MaxCandidates).ToList();
         kept = CandidateDeduplicator.Deduplicate(kept);
-        kept = CandidateBounds.WithinColumnLimits(kept, _options);
+        kept = CandidateBounds.WithinColumnLimits(kept);
 
         // Too few is a failure, not a triage state with nothing to triage. Retaining the passage is
         // what the learner needs next — they will add a focus hint and retry.
