@@ -21,10 +21,12 @@ public class TriageRecorder(
 
     public async Task<Guid?> OpenBatchAsync(string ownerId, int candidateCount, CancellationToken ct)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
-
         try
         {
+            // Inside the try, unlike CardStore's identical guard: the reject path has no
+            // try/catch of its own, so a throw here would take the untriaged batch with it.
+            ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+
             var batch = new TriageBatch
             {
                 Id = Guid.NewGuid(),
@@ -78,8 +80,6 @@ public class TriageRecorder(
         Action<TriageBatch> apply,
         CancellationToken ct)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
-
         if (batchId is not { } id)
         {
             return;
@@ -87,6 +87,8 @@ public class TriageRecorder(
 
         try
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+
             using var bounded = Bound(ct);
             await using var db = await dbFactory.CreateDbContextAsync(bounded.Token);
             // Scoped by owner as well as id, so a batch id that is not yours moves nothing.

@@ -54,6 +54,7 @@ public class TriageRecorderTests(TenExCardsWebApplicationFactory factory)
     {
         var owner = await CreateUserAsync();
 
+        var before = DateTimeOffset.UtcNow;
         var id = await WithRecorderAsync(r => r.OpenBatchAsync(owner, 5, CancellationToken.None));
 
         id.Should().NotBeNull();
@@ -64,6 +65,25 @@ public class TriageRecorderTests(TenExCardsWebApplicationFactory factory)
         batch.AcceptedCount.Should().Be(0);
         batch.RejectedCount.Should().Be(0);
         batch.EditedCount.Should().Be(0);
+        // Result set 2 of outcome_rates.sql filters on this; a default value would call every
+        // batch settled.
+        batch.OpenedAt.Should().BeOnOrAfter(before);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task EveryMember_WithNoOwner_RecordsNothingAndDoesNotThrow(string ownerId)
+    {
+        // The guard sits inside the swallow, unlike CardStore's: the reject path has no try/catch
+        // of its own, so throwing here would take the untriaged batch with it.
+        var open = () => WithRecorderAsync(r => r.OpenBatchAsync(ownerId, 3, CancellationToken.None));
+        var accept = () => WithRecorderAsync(r => r.RecordAcceptAsync(ownerId, Guid.NewGuid(), edited: false, CancellationToken.None));
+        var reject = () => WithRecorderAsync(r => r.RecordRejectAsync(ownerId, Guid.NewGuid(), CancellationToken.None));
+
+        (await open.Should().NotThrowAsync()).Which.Should().BeNull();
+        await accept.Should().NotThrowAsync();
+        await reject.Should().NotThrowAsync();
     }
 
     [Fact]

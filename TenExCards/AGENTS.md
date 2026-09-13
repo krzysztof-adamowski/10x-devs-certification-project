@@ -546,7 +546,8 @@ short form:
   that measurement can never cost a learner a card. These are floors.
 - **`Untriaged` pools three things** and only the first is card-quality signal: candidates the learner
   never reached, a batch open at the moment of the query, and accepts whose record write was
-  swallowed. The script's second result set — settled batches, older than 30 minutes — removes the
+  swallowed — and a swallowed *reject* lands there too, though it moves no rate. The script's
+  second result set — settled batches, older than 30 minutes — removes the
   second. Nothing removes the third. **Compare the two acceptance figures before reading a low one as
   a card-quality failure**: abandonment here is one click, because the nav menu renders throughout
   triage and enhanced navigation never fires `beforeunload`.

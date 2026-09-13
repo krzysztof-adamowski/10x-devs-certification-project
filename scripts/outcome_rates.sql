@@ -12,6 +12,7 @@
 -- 3. Untriaged pools three different things and only the first is card-quality signal:
 --    candidates the learner never reached, a batch open at the moment of the query, and accepts
 --    whose record write was swallowed. Result set 2 removes the second. Nothing removes the third.
+--    (A swallowed REJECT lands there too, though it moves no rate: the denominator is CandidateCount.)
 --
 -- Sources are deliberately split, because the two PRD criteria mean different things:
 --   acceptance + edit rate  <- TriageBatches, immune to card deletion ("edited before saving")
@@ -64,13 +65,26 @@ FROM   TriageBatches;
 -- 5. Per learner. The PRD phrases both primary criteria per learner ("a learner's space"); the
 --    pooled figures above are the headline while there is effectively one learner. One heavy
 --    account can hide every other experience, which is what this set is for.
-SELECT b.OwnerId,
-       SUM(CAST(b.AcceptedCount AS float)) / NULLIF(SUM(b.CandidateCount), 0) AS AcceptanceRate,
-       SUM(CAST(b.EditedCount AS float)) / NULLIF(SUM(b.AcceptedCount), 0)    AS EditRate,
-       SUM(b.CandidateCount)                                                  AS CandidatesShown,
-       (SELECT COUNT(*) FROM Cards c WHERE c.OwnerId = b.OwnerId)             AS CardsInSpace,
-       (SELECT SUM(CASE WHEN c.Origin = 1 THEN 1.0 ELSE 0 END) / NULLIF(COUNT(*), 0)
-        FROM Cards c WHERE c.OwnerId = b.OwnerId)                             AS GeneratedShare
-FROM   TriageBatches b
-GROUP  BY b.OwnerId
-ORDER  BY SUM(b.CandidateCount) DESC;
+--
+--    Driven from AspNetUsers, NOT from TriageBatches. Grouping by the batch table would drop every
+--    learner who owns cards but no batch -- the all-manual learner and anyone whose cards predate
+--    the AddTriageBatches epoch -- which is exactly the population that drags GeneratedShare down,
+--    so the set would be biased upward by its own omission. OUTER APPLY rather than two LEFT JOINs
+--    because joining both children at once multiplies each side by the other's row count.
+SELECT u.Id                     AS OwnerId,
+       b.AcceptanceRate,
+       b.EditRate,
+       b.CandidatesShown,
+       c.CardsInSpace,
+       c.GeneratedShare
+FROM   AspNetUsers u
+OUTER APPLY (SELECT SUM(CAST(t.AcceptedCount AS float)) / NULLIF(SUM(t.CandidateCount), 0) AS AcceptanceRate,
+                    SUM(CAST(t.EditedCount AS float))   / NULLIF(SUM(t.AcceptedCount), 0)  AS EditRate,
+                    ISNULL(SUM(t.CandidateCount), 0)                                       AS CandidatesShown
+             FROM   TriageBatches t WHERE t.OwnerId = u.Id) b
+OUTER APPLY (SELECT COUNT(*)                                                               AS CardsInSpace,
+                    SUM(CASE WHEN k.Origin = 1 THEN 1.0 ELSE 0 END) / NULLIF(COUNT(*), 0)  AS GeneratedShare
+             FROM   Cards k WHERE k.OwnerId = u.Id) c
+-- Registered but never used: no batches and no cards. Nothing to report, so nothing to show.
+WHERE  b.CandidatesShown > 0 OR c.CardsInSpace > 0
+ORDER  BY c.CardsInSpace DESC, b.CandidatesShown DESC;
