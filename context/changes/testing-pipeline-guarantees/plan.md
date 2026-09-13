@@ -712,30 +712,30 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 2.1 The suite passes
-- [x] 2.2 Bare-factory count matches what `TenExCards.Tests/AGENTS.md` claims
-- [x] 2.3 No test run opens a connection to `vault.azure.net`
+- [x] 2.1 The suite passes — b98f263
+- [x] 2.2 Bare-factory count matches what `TenExCards.Tests/AGENTS.md` claims — b98f263
+- [x] 2.3 No test run opens a connection to `vault.azure.net` — b98f263
 
 #### Manual
 
-- [x] 2.4 Suite green with the user-secrets store moved aside
-- [x] 2.5 D6 control throws when its environment is flipped to Production; reverted
-- [x] 2.6 Each guard assertion pins its own cause, not another guard's throw
-- [x] 2.7 No Key Vault traffic observed during the run
+- [x] 2.4 Suite green with the user-secrets store moved aside — b98f263
+- [x] 2.5 D6 control throws when its environment is flipped to Production; reverted — b98f263
+- [x] 2.6 Each guard assertion pins its own cause, not another guard's throw — b98f263
+- [x] 2.7 No Key Vault traffic observed during the run — b98f263
 
 ### Phase 3: The deploy gate gets a second oracle
 
 #### Automated
 
-- [ ] 3.1 `verify_deploy.py --help` runs without error
-- [ ] 3.2 `py_compile` succeeds on `verify_deploy.py`
-- [ ] 3.3 `verify_deploy.py` passes against the live site
+- [x] 3.1 `verify_deploy.py --help` runs without error
+- [x] 3.2 `py_compile` succeeds on `verify_deploy.py`
+- [x] 3.3 `verify_deploy.py` passes against the live site
 
 #### Manual
 
-- [ ] 3.4 Each asset logs its media type
-- [ ] 3.5 The `http→https` scheme upgrade is logged, not failed
-- [ ] 3.6 The HSTS assertion reads a real header
+- [x] 3.4 Each asset logs its media type
+- [x] 3.5 The `http→https` scheme upgrade is logged, not failed
+- [x] 3.6 The HSTS assertion reads a real header
 
 ### Phase 4: `--self-test` and its CI step
 
