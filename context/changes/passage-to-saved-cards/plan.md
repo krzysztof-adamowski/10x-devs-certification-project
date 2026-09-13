@@ -1114,13 +1114,13 @@ this phase is sequenced first.
 
 #### Automated
 
-- [x] 5.1 Solution builds and tests pass
-- [x] 5.2 `AGENTS.md` no longer says an LLM client is missing
-- [x] 5.3 `Home.razor` no longer says the flow arrives in later slices
+- [x] 5.1 Solution builds and tests pass — 7fece62
+- [x] 5.2 `AGENTS.md` no longer says an LLM client is missing — 7fece62
+- [x] 5.3 `Home.razor` no longer says the flow arrives in later slices — 7fece62
 
 #### Manual
 
-- [x] 5.4 `AGENTS.md` reads correctly end to end; secret count and app-setting list match reality
-- [x] 5.5 Roadmap `S-02`, Open Roadmap Question 2 and `deploy-plan.md` tell the same story
-- [x] 5.6 Every fact lives in exactly one of `AGENTS.md` or `deploy-plan.md`, never both
-- [x] 5.7 The roadmap moves the learner-perspective test to `S-03` and `S-02` no longer claims it
+- [x] 5.4 `AGENTS.md` reads correctly end to end; secret count and app-setting list match reality — 7fece62
+- [x] 5.5 Roadmap `S-02`, Open Roadmap Question 2 and `deploy-plan.md` tell the same story — 7fece62
+- [x] 5.6 Every fact lives in exactly one of `AGENTS.md` or `deploy-plan.md`, never both — 7fece62
+- [x] 5.7 The roadmap moves the learner-perspective test to `S-03` and `S-02` no longer claims it — 7fece62
