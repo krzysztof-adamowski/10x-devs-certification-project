@@ -120,7 +120,8 @@ public class LearnerJourneyTests(AppUnderTest app) : IClassFixture<AppUnderTest>
         // Three: accepted untouched.
         await Action(page, Keep).ClickAsync();
 
-        await page.GetByText("Saved 2 cards, discarded 1.").WaitForAsync(new() { Timeout = 20_000 });
+        // TEMPORARY deliberate break — S-03 criterion 3.8, reverted in the next commit.
+        await page.GetByText("Saved 99 cards, discarded 99.").WaitForAsync(new() { Timeout = 20_000 });
     }
 
     [Fact]
