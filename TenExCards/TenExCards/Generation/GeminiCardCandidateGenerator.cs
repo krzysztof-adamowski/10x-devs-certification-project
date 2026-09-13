@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -29,9 +30,15 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
             throw new InvalidOperationException("Gemini:Models is empty; at least one model is required.");
         }
 
+        // One retry, not the default three: the rotation below IS the resilience strategy, and
+        // re-asking an overloaded model before trying a healthy one just spends the timeout budget.
         _client = new OpenAIClient(
             new ApiKeyCredential(geminiOptions.ApiKey!),
-            new OpenAIClientOptions { Endpoint = new Uri(geminiOptions.Endpoint) });
+            new OpenAIClientOptions
+            {
+                Endpoint = new Uri(geminiOptions.Endpoint),
+                RetryPolicy = new ClientRetryPolicy(maxRetries: 1),
+            });
     }
 
     public async Task<GenerationResult> GenerateAsync(
@@ -43,6 +50,7 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
         var target = PassageBounds.TargetCandidateCount(passage, _options);
         var messages = BuildMessages(passage, focusHint, target);
         var options = BuildOptions();
+        var lastStatus = 0;
 
         foreach (var model in _models)
         {
@@ -70,10 +78,9 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
                     GenerationFailure.Timeout,
                     "Generating took longer than expected and was stopped. Your passage is still here — try again, or narrow it with a focus hint.");
             }
-            catch (ClientResultException ex) when (ex.Status == 429)
+            catch (ClientResultException ex) when (IsWorthTryingAnotherModel(ex.Status))
             {
-                // Daily free-tier quota for this model. Fall through to the next, which has its own
-                // quota — the id is GenerateRequestsPerDayPerProjectPerModel.
+                lastStatus = ex.Status;
                 continue;
             }
             catch (Exception)
@@ -90,14 +97,27 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
 
         // Written for the MVP's reviewers rather than a general audience: they need to know this is
         // a deliberate free-tier ceiling, not a defect, and that it clears on its own.
+        var cause = lastStatus == 429
+            ? "all returned HTTP 429 (RESOURCE_EXHAUSTED), meaning the daily quota is spent. It "
+              + "resets once a day"
+            : $"were all unavailable (the last returned HTTP {lastStatus}). This is usually "
+              + "temporary — try again in a minute";
+
         return GenerationResult.Failed(
             GenerationFailure.QuotaExhausted,
-            "Every configured model has used up its free-tier daily quota, so no cards can be "
-            + $"generated right now. This deployment runs on Google's Gemini free tier by choice: "
-            + $"{string.Join(", ", _models)} were all tried and all returned HTTP 429 "
-            + "(RESOURCE_EXHAUSTED). The quota resets once a day, and nothing is wrong with the "
+            "No cards can be generated right now. This deployment runs on Google's Gemini free tier "
+            + $"by choice, and {string.Join(", ", _models)} {cause}. Nothing is wrong with the "
             + "application. Your passage is still here.");
     }
+
+    /// <summary>
+    /// Whether a failed model is worth abandoning for the next one. 429 is the daily quota, and 5xx
+    /// covers an overloaded model (Gemini returns 503 UNAVAILABLE under load) — both are specific to
+    /// one model, so the next may well answer. A 400/401/403 is a fault in the request or the key
+    /// and would fail identically everywhere, so it stops the rotation instead of tripling the wait.
+    /// </summary>
+    private static bool IsWorthTryingAnotherModel(int status) =>
+        status is 429 or 404 or >= 500;
 
     private static List<ChatMessage> BuildMessages(string passage, string? focusHint, int target)
     {
