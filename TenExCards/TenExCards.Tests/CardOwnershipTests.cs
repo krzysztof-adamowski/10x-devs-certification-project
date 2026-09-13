@@ -40,7 +40,7 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
 
         await WithStoreAsync(store => store.SaveAsync(
             ownerA, "What does a contained database user authenticate against?",
-            "The database named in its own connection string.", CardOrigin.Generated, CancellationToken.None));
+            "The database named in its own connection string.", CardOrigin.Generated, edited: false, CancellationToken.None));
 
         var seenByOwner = await WithStoreAsync(store =>
             store.CountForOwnerAsync(ownerA, CancellationToken.None));
@@ -60,11 +60,11 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
         for (var i = 0; i < 3; i++)
         {
             await WithStoreAsync(store => store.SaveAsync(
-                ownerA, $"Prompt A{i}", $"Answer A{i}", CardOrigin.Generated, CancellationToken.None));
+                ownerA, $"Prompt A{i}", $"Answer A{i}", CardOrigin.Generated, edited: false, CancellationToken.None));
         }
 
         await WithStoreAsync(store => store.SaveAsync(
-            ownerB, "Prompt B0", "Answer B0", CardOrigin.Generated, CancellationToken.None));
+            ownerB, "Prompt B0", "Answer B0", CardOrigin.Generated, edited: false, CancellationToken.None));
 
         (await WithStoreAsync(store => store.CountForOwnerAsync(ownerA, CancellationToken.None)))
             .Should().Be(3);
@@ -80,7 +80,7 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
 
         var saved = await WithStoreAsync(store => store.SaveAsync(
             ownerA, "Which mode of az deployment group create deletes absent resources?",
-            "Complete.", CardOrigin.Generated, CancellationToken.None));
+            "Complete.", CardOrigin.Generated, edited: false, CancellationToken.None));
 
         saved.OwnerId.Should().Be(ownerA);
         saved.Origin.Should().Be(CardOrigin.Generated);
@@ -97,13 +97,41 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
         stored.Answer.Should().Be(saved.Answer);
     }
 
+    [Fact]
+    public async Task SaveAsync_RoundTripsTheEditedFlag()
+    {
+        var ownerA = await CreateUserAsync();
+
+        var editedCard = await WithStoreAsync(store => store.SaveAsync(
+            ownerA, "Prompt the learner reworded", "Answer the learner reworded",
+            CardOrigin.Generated, edited: true, CancellationToken.None));
+
+        var untouchedCard = await WithStoreAsync(store => store.SaveAsync(
+            ownerA, "Prompt accepted as generated", "Answer accepted as generated",
+            CardOrigin.Generated, edited: false, CancellationToken.None));
+
+        editedCard.Edited.Should().BeTrue();
+        untouchedCard.Edited.Should().BeFalse();
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var storedEdited = await db.Cards
+            .SingleAsync(c => c.OwnerId == ownerA && c.Id == editedCard.Id, CancellationToken.None);
+        var storedUntouched = await db.Cards
+            .SingleAsync(c => c.OwnerId == ownerA && c.Id == untouchedCard.Id, CancellationToken.None);
+
+        storedEdited.Edited.Should().BeTrue("S-06 cannot backfill what the store dropped");
+        storedUntouched.Edited.Should().BeFalse();
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
     public async Task SaveAsync_WithNoOwner_IsRefused(string ownerId)
     {
         var act = async () => await WithStoreAsync(store => store.SaveAsync(
-            ownerId, "Prompt", "Answer", CardOrigin.Generated, CancellationToken.None));
+            ownerId, "Prompt", "Answer", CardOrigin.Generated, edited: false, CancellationToken.None));
 
         await act.Should().ThrowAsync<ArgumentException>(
             "an ownerless card has no account boundary to sit behind");

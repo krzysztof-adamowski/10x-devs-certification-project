@@ -14,6 +14,7 @@ public class CardStore(IDbContextFactory<AppDbContext> dbFactory) : ICardStore
         string prompt,
         string answer,
         CardOrigin origin,
+        bool edited,
         CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
@@ -35,6 +36,7 @@ public class CardStore(IDbContextFactory<AppDbContext> dbFactory) : ICardStore
             Prompt = prompt,
             Answer = answer,
             Origin = origin,
+            Edited = edited,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 

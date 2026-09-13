@@ -17,6 +17,10 @@ public class Card
 
     public CardOrigin Origin { get; set; }
 
+    /// <summary>Set at acceptance, the only moment it is observable: the candidate is discarded
+    /// immediately after, so S-06 cannot backfill it.</summary>
+    public bool Edited { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }
 

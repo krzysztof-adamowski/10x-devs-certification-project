@@ -211,7 +211,13 @@ public partial class Generate : IAsyncDisposable
 
             try
             {
-                await Store.SaveAsync(_ownerId!, Current.Prompt, Current.Answer, CardOrigin.Generated, CancellationToken.None);
+                await Store.SaveAsync(
+                    _ownerId!,
+                    Current.Prompt,
+                    Current.Answer,
+                    CardOrigin.Generated,
+                    edited: false,
+                    CancellationToken.None);
             }
             catch (Exception)
             {

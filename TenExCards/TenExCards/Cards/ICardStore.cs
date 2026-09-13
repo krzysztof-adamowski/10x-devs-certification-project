@@ -13,6 +13,7 @@ public interface ICardStore
         string prompt,
         string answer,
         CardOrigin origin,
+        bool edited,
         CancellationToken ct);
 
     Task<int> CountForOwnerAsync(string ownerId, CancellationToken ct);
