@@ -481,15 +481,15 @@ success criterion, not an assumption.
 
 #### Automated
 
-- [ ] 3.1 `main` workflow run green across the full step list
-- [ ] 3.2 `scripts/verify_deploy.py` passes in that run
+- [x] 3.1 `main` workflow run green across the full step list
+- [x] 3.2 `scripts/verify_deploy.py` passes in that run
 - [x] 3.3 No `S-05` forward reference left in `AGENTS.md` or `Card.cs` — 76455f9
 
 #### Manual
 
-- [ ] 3.4 Anonymous `/cards/new` on the live site returns `302`, not `401`
-- [ ] 3.5 A live hand-written card survives a refresh, confirmed by query against `sqldb-tenexcards`
-- [ ] 3.6 A refresh after a live save leaves the row count unchanged
-- [ ] 3.7 Live assets answer `text/css` / a JavaScript type, not `text/html`
+- [x] 3.4 Anonymous `/cards/new` on the live site returns `302`, not `401`
+- [x] 3.5 A live hand-written card survives a refresh, confirmed by query against `sqldb-tenexcards`
+- [x] 3.6 A refresh after a live save leaves the row count unchanged
+- [x] 3.7 Live assets answer `text/css` / a JavaScript type, not `text/html`
 - [x] 3.8 `AGENTS.md` reads correctly and the two new mechanisms appear exactly once — 76455f9
-- [ ] 3.9 Roadmap `S-05` and `AGENTS.md` tell the same story
+- [x] 3.9 Roadmap `S-05` and `AGENTS.md` tell the same story

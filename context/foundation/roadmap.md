@@ -65,7 +65,7 @@ reason to exist.
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | in-progress |
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | done |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | planning |
-| S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | in-progress |
+| S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | done |
 | S-06 | `outcome-recording`      | determine the acceptance, AI-origin, and edit rates              | S-03, S-04, S-05 | FR-013, Success Criteria                                | proposed |
 
 ## Streams
@@ -367,7 +367,21 @@ rather than reopening them.
   so it completes the model rather than serving as a primary path — and the PRD's target that three
   quarters of a learner's cards come from generation is only meaningful because this path exists to
   be the minority.
-- **Status:** in-progress
+- **Landed 2026-09-13:** `/cards/new`, a **statically rendered** `EditForm` POST on the Identity
+  pages' pattern rather than `Generate`'s circuit — a two-field form needs no circuit, and the B1
+  memory ceiling arrives without back-pressure. Reached from a link in `Generate`'s compose branch
+  only, with no nav item and no home-page link, so generation stays the default path the
+  75%-generated target depends on. `CardOrigin.Manual` and `edited: false`; the enum value and the
+  column both already existed, so this slice needed **no migration and no `ICardStore` change**.
+  Three things the plan did not anticipate. `SaveAsync` had gained an `edited` parameter from `S-03`
+  in the meantime. A `[SupplyParameterFromQuery] int?` **throws a `500`** on a non-numeric value, and
+  the this-visit tally sits in a learner-editable URL — it binds as `string` and is parsed
+  defensively. And post-redirect-get closes duplication on **refresh only**: a double-click still
+  writes two rows, recorded in `TenExCards/AGENTS.md` as an accepted gap to revisit with `S-04`,
+  since closing it server-side needs an idempotency key through the store and nothing can delete the
+  duplicate until `S-04` exists. Verified on the live instance: anonymous `/cards/new` answers `302`,
+  and one hand-written card sits in `sqldb-tenexcards` with `Origin = 2` after four refreshes.
+- **Status:** done
 
 ### S-06: Triage outcomes and card origin are recorded
 
