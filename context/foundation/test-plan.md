@@ -46,8 +46,8 @@ failure lives" (that is research's job, see §1 principle #3).
 |---|---|---|---|---|
 | 1 | A request-pipeline change silently removes an authorization or transport guarantee. The site still answers `200`, and the guarantee is gone. | High | High | interview Q3; hot-spot dir `TenExCards/TenExCards/` root — 16 commits/30d, its top file 8; hot-spot dir `Components/Account/` — 13 commits/30d; `TenExCards/AGENTS.md` `### Authorization defaults to protected` (anonymous-by-folder inheritance; the static-asset case the deploy gate structurally cannot see) |
 | 2 | A learner's generation fails for a provider condition the rotation exists to absorb — or spends the timeout budget re-asking a model that is already overloaded. | High | High | interview Q4; roadmap Open Question 2 (free tier measured at 20 requests/day/model from a `429` body — quota exhaustion is the expected path, not the exceptional one); hot-spot dir `Generation/` — 19 commits/30d; PRD Guardrail "generation never blocks without feedback" |
-| 3 | A signed-in learner reaches cards belonging to a different account. | High | Medium | interview Q1; PRD `## Access Control` ("visible to no one else"); `lessons.md` "Put the validation gate on the call, not on one route to it" — this repository has already shipped a slice that routed around a seam-gate with every existing test still green; hot-spot dirs `Cards/` 11 and `Data/` 13 commits/30d; roadmap `S-06` still `proposed` and reads across cards |
-| 4 | The three numbers the product's central bet is judged on are permanently wrong, because they were recorded wrong at the moment of the write. | High | Medium | PRD `## Success Criteria` (all three primary, plus the secondary edit rate) and FR-013; roadmap `S-06 outcome-recording` is the next slice and all its prerequisites have landed; `TenExCards/AGENTS.md` — the edited fact is observable only at acceptance, so `S-06` cannot backfill it |
+| 3 | A signed-in learner reaches cards belonging to a different account. | High | Medium | interview Q1; PRD `## Access Control` ("visible to no one else"); `lessons.md` "Put the validation gate on the call, not on one route to it" — this repository has already shipped a slice that routed around a seam-gate with every existing test still green; hot-spot dirs `Cards/` 11 and `Data/` 13 commits/30d; roadmap `S-06` landed 2026-09-14 and reads across cards |
+| 4 | The three numbers the product's central bet is judged on are permanently wrong, because they were recorded wrong at the moment of the write. | High | Medium | PRD `## Success Criteria` (all three primary, plus the secondary edit rate) and FR-013; roadmap `S-06 outcome-recording` landed 2026-09-14, so the numbers are accruing in production now and `TenExCards/AGENTS.md` records that the edited fact, observable only at acceptance, cannot be backfilled; `S-06` also added a **second** counting surface beside the per-card fields |
 | 5 | A configuration or schema change makes the deployed container fail to boot, on a tier with no slot to roll back to. | High | Medium | interview Q2; hot-spot dirs `Migrations/` 15 and `TenExCards/TenExCards/` root 16 commits/30d; `tech-stack.md` + `infrastructure.md` constraint (B1 Linux, no deployment slots, migrations forward-only on the boot path); `lessons.md` "Prove the check before trusting the result" |
 | 6 | A learner's save produces two cards they did not ask for, or none, and nothing tells them which. | High | Medium | PRD Guardrail "No accepted card is ever silently lost" and FR-012; `context/archive/2026-09-13-manual-card-entry/plan.md`; `TenExCards/AGENTS.md` records the double-submit gap as an accepted gap with `S-04` named as its revisit trigger — and `S-04` has since landed, so the trigger has fired |
 | 7 | A learner submits content that clears the interface's own bound, and the save throws in their face on a card only they can fix. | Medium | Medium | `lessons.md` "Put the validation gate on the call, not on one route to it" — the recorded incident, where a new edit path reached the save directly and every existing test stayed green; hot-spot dir `Components/Pages/` — 30 commits/30d, the highest-churn directory in the repository; PRD NFR (no silent truncation) |
@@ -87,7 +87,7 @@ artifacts appear on disk.
 | 1 | Pipeline guarantees under test | A change to pipeline ordering or authorization fails a test rather than reaching production green, and the deploy gate stops recording a redirected asset as a pass | #1, #5 | integration, gates | complete | `context/changes/testing-pipeline-guarantees/` |
 | 2 | Provider rotation behaviour | The provider status-to-action matrix is enforced by a test instead of by a comment, with zero live quota spent | #2 | unit, integration | not started | — |
 | 3 | Write-path integrity | Every route that writes a card is behind the ownership boundary and the storage bounds, and no route produces a card the learner did not ask for | #3, #6, #7 | integration, e2e | not started | — |
-| 4 | Measurement integrity before `S-06` | Card origin and edit provenance are correct at the moment of the write, on every creation route, and immune to later edits | #4 | integration | not started | — |
+| 4 | Measurement surfaces agree | The batch counters `S-06` writes and the per-card origin/edit fields cannot silently diverge, so the three headline numbers read the same from either | #4 | integration | not started | — |
 | 5 | AI-native rules-drift review | A change that weakens a rule this repository holds as prose is surfaced at review time — the regression class no test can catch, because the rule is a sentence | cross-cutting (#1, #3, #5) | AI-native review | not started | — |
 
 **Order rationale.** Phase 1 carries the two highest-likelihood risks, reuses a test host
@@ -96,9 +96,17 @@ so it is both the cheapest and the most protective. Phase 2 is independent of Ph
 sequenced second because its risk is equally likely and *entirely* uncovered: every test in
 the repository stubs the generator interface, so the rotation lives below all of them.
 Phase 3 extends coverage from seams to routes, which is the failure shape `lessons.md` has
-already recorded once here. Phase 4 is time-critical rather than severity-critical — `S-06`
-is the next roadmap slice and the data it reads cannot be backfilled, so this must land
-before `S-06`, not after. Phase 5 is last because it is a backstop, not a control: its value
+already recorded once here. Phase 4 was originally sequenced to land *before* `S-06`, on the
+grounds that the data it reads cannot be backfilled. **`S-06` landed on 2026-09-14 and that
+window closed**, and re-checking the phase against the code found its stated goal already
+met: `CardOwnershipTests` pins origin and the edited flag at the write and again after a
+later repair (`UpdateForOwnerAsync_ForOwnCard_ReplacesTextAndPreservesOriginAndEdited`), and
+`ManualCardEntryTests` pins the hand-written route — the two routes that call `CardOrigin`.
+What `S-06` did introduce is a **second** way to count the same thing: `TriageBatch` carries
+`AcceptedCount`, `RejectedCount` and `EditedCount`, written on a different path from the
+per-card `Origin` and `Edited` fields, and nothing asserts the two agree. A divergence does
+not make a number obviously wrong — it makes it *ambiguous*, which is worse for a metric the
+product's central bet is judged on. Phase 4 is re-aimed at that seam. Phase 5 is last because it is a backstop, not a control: its value
 is exactly the residue left once Phases 1–4 have converted every rule that *can* be pinned
 by a test into a test.
 
@@ -242,7 +250,7 @@ underlying assumption changes.
 - **An offline judge scoring card quality against the four properties.** Tempting, because
   the prompt specification *is* the product and only its text is currently pinned. Rejected
   on cost × signal: the product already produces a truer oracle for free — the acceptance
-  rate, which `S-06` is built to record and which the PRD names as the primary success
+  rate, which `S-06` now records and which the PRD names as the primary success
   criterion. A judge duplicates that signal, spends capped quota, and substitutes a model's
   opinion for the learner's. Re-evaluate if the acceptance rate ever proves unreadable.
   (Source: this plan's challenger pass, 2026-09-13.)
@@ -284,7 +292,7 @@ underlying assumption changes.
 
 ## 8. Freshness Ledger
 
-- Strategy (§1–§5) last reviewed: 2026-09-14
+- Strategy (§1–§5) last reviewed: 2026-09-14 (§2 risk #3/#4 sources and §3 Phase 4 re-aimed after `S-06` landed)
 - Stack versions last verified: 2026-09-13
 - AI-native tool references last verified: 2026-09-13
 
