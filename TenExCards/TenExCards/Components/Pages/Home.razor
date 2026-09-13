@@ -12,14 +12,12 @@
     Turn a passage you have just read into flashcards worth keeping.
 </p>
 
-<p>
-    The application shell is in place. Pasting a passage, reviewing candidates, and saving the
-    cards you accept arrive in later slices.
-</p>
-
 <AuthorizeView>
     <Authorized>
         <p>Signed in as <strong>@context.User.Identity?.Name</strong>.</p>
+        <p>
+            <a class="btn btn-primary" href="generate">Generate cards from a passage</a>
+        </p>
     </Authorized>
     <NotAuthorized>
         <p>

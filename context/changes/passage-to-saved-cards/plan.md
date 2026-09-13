@@ -1064,34 +1064,34 @@ this phase is sequenced first.
 
 #### Automated
 
-- [x] 2.1 Solution builds
-- [x] 2.2 Tests pass
-- [x] 2.3 No secret reaches a tracked file
-- [x] 2.4 App boots locally against `sqldb-tenexcards-dev` with `Gemini:ApiKey` in user-secrets
+- [x] 2.1 Solution builds — fe56f6d
+- [x] 2.2 Tests pass — fe56f6d
+- [x] 2.3 No secret reaches a tracked file — fe56f6d
+- [x] 2.4 App boots locally against `sqldb-tenexcards-dev` with `Gemini:ApiKey` in user-secrets — fe56f6d
 
 #### Manual
 
-- [x] 2.5 `gemini-api-key` in the vault and `Gemini__ApiKey` reporting `Resolved`, before the merge
-- [x] 2.6 Streaming + JSON-schema structured output established by a throwaway call and recorded
-- [x] 2.7 A hand-run generation returns cards that read as reformulated, not copied
+- [x] 2.5 `gemini-api-key` in the vault and `Gemini__ApiKey` reporting `Resolved`, before the merge — fe56f6d
+- [x] 2.6 Streaming + JSON-schema structured output established by a throwaway call and recorded — fe56f6d
+- [x] 2.7 A hand-run generation returns cards that read as reformulated, not copied — fe56f6d
 
 ### Phase 3: Paste, generate, triage
 
 #### Automated
 
-- [ ] 3.1 Solution builds
-- [ ] 3.2 Tests pass
-- [ ] 3.3 `AuthBoundaryTests` shows `/generate` answering `302` to the login path
-- [ ] 3.4 No passage-bearing field is persisted or logged
+- [x] 3.1 Solution builds
+- [x] 3.2 Tests pass
+- [x] 3.3 `AuthBoundaryTests` shows `/generate` answering `302` to the login path
+- [x] 3.4 No passage-bearing field is persisted or logged
 
 #### Manual
 
-- [ ] 3.5 Full local loop: paste, triage, summary counts match
-- [ ] 3.6 Over-length refused both by the disabled control and by the handler's re-check
-- [ ] 3.7 Passage cleared on success, retained on a forced failure
-- [ ] 3.8 Accept and reject equal in prominence, neither confirming
-- [ ] 3.9 Refresh mid-triage warns, then discards the untriaged remainder
-- [ ] 3.10 Locally accepted cards present in `sqldb-tenexcards-dev` with the correct `OwnerId`
+- [x] 3.5 Full local loop: paste, triage, summary counts match
+- [x] 3.6 Over-length refused both by the disabled control and by the handler's re-check
+- [x] 3.7 Passage cleared on success, retained on a forced failure
+- [x] 3.8 Accept and reject equal in prominence, neither confirming
+- [x] 3.9 Refresh mid-triage warns, then discards the untriaged remainder
+- [x] 3.10 Locally accepted cards present in `sqldb-tenexcards-dev` with the correct `OwnerId`
 
 ### Phase 4: Deploy and verify on the live instance
 

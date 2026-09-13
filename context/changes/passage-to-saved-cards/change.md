@@ -184,3 +184,109 @@ and picked the three load-bearing claims instead: the definition nuance (end sta
 the causal link (the acknowledgement itself can be lost), and the distinction (at-least-once plus
 idempotent processing is observationally exactly-once).
 
+### The plan is wrong about `@Assets` in a code-behind, corrected 2026-09-13
+
+Phase 3 §3 says the C# side must resolve the fingerprinted module path via `<ImportMap />` or an
+injected `ResourceAssetCollection`, because "the `@Assets[…]` helper `ReconnectModal.razor` uses is
+a Razor markup helper and is not available from `.razor.cs`". **That is false on `net10.0`, and the
+route it recommends is the one that breaks.**
+
+Measured by reflection rather than argued:
+
+```
+ComponentBase.Assets : Microsoft.AspNetCore.Components.ResourceAssetCollection
+                       public=False  inject=False
+Generate.Assets      : declaredOn=ComponentBase  inject=False
+```
+
+`Assets` is a **protected property on `ComponentBase`** that the framework populates itself. It
+carries no `[Inject]` attribute and `ResourceAssetCollection` is **not a registered service**, so
+`[Inject] ResourceAssetCollection` compiles cleanly and then throws at the first render of
+`/generate`:
+
+```
+InvalidOperationException: Cannot provide a value for property 'AssetPaths' on type
+'TenExCards.Components.Pages.Generate'. There is no registered service of type
+'Microsoft.AspNetCore.Components.ResourceAssetCollection'.
+```
+
+Because a code-behind is a `partial` of the component class, it inherits that protected member — so
+`Assets["Components/Pages/Generate.razor.js"]` simply works there, with no injection and no import
+map lookup. That is what the code does now.
+
+**The generalisable part**: this failed the way the plan predicted JS interop would fail, just one
+layer earlier. A compile success said nothing, because the defect was a DI registration rather than
+a type error. The check that settled it was reflection over the actual framework types, and it was
+only trustworthy because the compile-only verification used to get there
+(`dotnet msbuild -t:Compile`, needed because a running app locks the output exe) was first proven to
+report a deliberately introduced error — `lessons.md`'s "Prove the check before trusting the result"
+applied to a build target.
+
+### The rotation was too narrow: Gemini returns 503, not only 429
+
+Found on 2026-09-13 by the first real run of the page, which reported `ProviderError` after ~15
+seconds with three models configured and two of them healthy.
+
+```
+gemini-3.8-flash       HTTP 503  2.0s  "This model is currently experiencing high demand."  UNAVAILABLE
+gemini-3.5-flash-lite  OK        1.4s  9 frames, 5 candidates
+gemini-3.1-flash-lite  OK        1.5s  10 frames, 5 candidates
+```
+
+The rotation fell through on `429` alone, so a `503` hit the broad `catch` and failed the whole
+request **without trying the two models that would have answered**. A quota ceiling was the only
+per-model failure anticipated when the rotation was written; an overloaded model is at least as
+common and looks nothing like it.
+
+Two fixes, both in `GeminiCardCandidateGenerator`:
+
+- **Fall through on `429`, `404`, and any `5xx`** (`IsWorthTryingAnotherModel`). Those are faults in
+  one model. A `400`, `401` or `403` is a fault in the request or the key and would fail identically
+  on every model, so it stops the rotation rather than tripling the wait before saying so.
+- **`RetryPolicy = new ClientRetryPolicy(maxRetries: 1)`**, down from the client's default of three.
+  This is the other half of the ~15 seconds: the client was re-asking the *overloaded* model with
+  backoff before giving up, which is backwards when a healthy model is one line down in the
+  configuration. The rotation is the resilience strategy; the per-model retry only needs to absorb a
+  single blip.
+
+The `QuotaExhausted` message now distinguishes the two causes, since "your daily quota is spent"
+and "every model is busy, try in a minute" call for different actions from the reader.
+
+**What this says about the earlier diagnosis.** Some of the failures attributed to the daily quota
+during Phase 2 were probably `503`s. The quota finding itself is unaffected — that one was read from
+a `429` body naming `quotaValue: 20` — but "the generator is fine, the free tier is rate-limiting"
+was too confident a conclusion from a `ProviderError` alone. The generator was in fact mapping two
+different provider states onto one outcome, and it took the page's first real run to separate them.
+
+### Blazor renders at an event handler's first yielding await, and that broke reject-last
+
+Found on 2026-09-13 by manual testing: discarding the **last** candidate threw the generic Blazor
+error UI. Accepting the last candidate did not, and discarding the first four then accepting the
+fifth did not either.
+
+`ComponentBase.HandleEventAsync` calls `StateHasChanged()` as soon as the handler's returned task is
+found incomplete — that is, at the **first await that actually yields** — and once more when the
+handler finishes. Awaits in between render nothing. So the two triage paths rendered at different
+moments:
+
+| Path | First yielding await | State when it rendered |
+| --- | --- | --- |
+| Accept | `ICardStore.SaveAsync` | candidate still in the list, stage `Triaging` — consistent |
+| Reject | `SetUnloadWarningAsync` (JS interop) | list already emptied, stage still `Triaging` — **`Current` indexes `[0]` of an empty list** |
+
+Reject performs no database write, so the interop call is its first yield. `AdvanceAsync` removed
+the candidate, then awaited the interop, and only *afterwards* moved the stage to `Summary` — so the
+render caught the one moment where the stage and the list disagreed.
+
+The fix is ordering: move the stage **before** any await, so no intermediate render can observe an
+inconsistent pair. The Triaging branch also now requires `_pending.Count > 0`, as a second line of
+defence — an unhandled exception inside a circuit event handler takes the whole untriaged batch with
+it, which is precisely what the return-don't-throw rule exists to avoid elsewhere.
+
+**Two things worth carrying into `S-03`.** Any state a component mutates across an await must be
+left consistent *before* that await, not after — and a path with no I/O is the dangerous one,
+because its first yield lands somewhere unexpected. And the bug was evidence of something working:
+it could only fire if the interop call genuinely yielded, which proves the `Generate.razor.js`
+module import resolves. Had the import silently failed, `SetUnloadWarningAsync` would have returned
+synchronously and the crash would never have appeared.
+

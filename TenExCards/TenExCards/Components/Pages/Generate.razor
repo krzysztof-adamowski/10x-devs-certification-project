@@ -1,0 +1,95 @@
+@page "/generate"
+@rendermode InteractiveServer
+
+<PageTitle>Generate cards</PageTitle>
+
+<h1>Generate cards</h1>
+
+@if (_stage is Stage.Composing or Stage.Failed)
+{
+    @if (_stage is Stage.Failed && _failureMessage is not null)
+    {
+        <div class="alert alert-warning" role="alert">@_failureMessage</div>
+    }
+
+    @if (_validationMessage is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_validationMessage</div>
+    }
+
+    <p>
+        Paste a passage you have just read. Every card is made from this text alone, and the text
+        itself is discarded as soon as the candidates exist.
+    </p>
+
+    <div class="mb-3">
+        <label for="passage" class="form-label">Passage</label>
+        <textarea id="passage" class="form-control" rows="12"
+                  @bind="_passage" @bind:event="oninput"></textarea>
+        <div class="form-text @(PassageOverLimit ? "text-danger" : null)">
+            @_passage.Length.ToString("N0") / @Options.MaxPassageCharacters.ToString("N0") characters
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="focus" class="form-label">Focus hint (optional)</label>
+        <input id="focus" class="form-control" maxlength="@Options.MaxFocusHintCharacters"
+               placeholder="the causes, not the dates"
+               @bind="_focusHint" @bind:event="oninput" />
+        <div class="form-text @(FocusHintOverLimit ? "text-danger" : null)">
+            @_focusHint.Length / @Options.MaxFocusHintCharacters characters. Narrows what gets carded.
+        </div>
+    </div>
+
+    <button class="btn btn-primary" disabled="@(!CanSubmit)" @onclick="SubmitAsync">
+        Generate cards
+    </button>
+}
+else if (_stage is Stage.Generating)
+{
+    <p>Reading your passage and writing cards.</p>
+
+    <div class="progress mb-3" role="progressbar" aria-label="Generating">
+        <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
+    </div>
+
+    <p class="text-muted">
+        @_elapsedSeconds second@(_elapsedSeconds == 1 ? "" : "s") elapsed@(_chunks > 0 ? $", {_chunks} response chunk{(_chunks == 1 ? "" : "s")} received" : "").
+    </p>
+
+    <button class="btn btn-outline-secondary" @onclick="CancelAsync">Cancel</button>
+}
+else if (_stage is Stage.Triaging && _pending.Count > 0)
+{
+    <p class="text-muted">Card @(_triagedCount + 1) of @_batchSize</p>
+
+    @if (_saveError is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_saveError</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="card-title h5">@Current.Prompt</h2>
+            <p class="card-text">@Current.Answer</p>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-primary" style="min-width: 10rem" @onclick="AcceptAsync">Keep this card</button>
+        <button class="btn btn-primary" style="min-width: 10rem" @onclick="RejectAsync">Discard this card</button>
+    </div>
+
+    <p class="text-muted">
+        Cards you have not decided on are discarded when you leave this page. They cannot be
+        brought back.
+    </p>
+}
+else if (_stage is Stage.Summary)
+{
+    <p>
+        Saved @_saved card@(_saved == 1 ? "" : "s"), discarded @_discarded.
+    </p>
+
+    <button class="btn btn-primary" @onclick="StartOver">Paste another passage</button>
+}
