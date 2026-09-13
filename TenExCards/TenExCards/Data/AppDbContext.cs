@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +40,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     /// <summary>Query through <c>ICardStore</c>, which owns the account filter.</summary>
     public DbSet<Card> Cards => Set<Card>();
 
+    /// <summary>Query through <c>ITriageRecorder</c>, which owns the account filter.</summary>
+    public DbSet<TriageBatch> TriageBatches => Set<TriageBatch>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -57,6 +60,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             card.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(c => c.OwnerId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TriageBatch>(batch =>
+        {
+            // No HasMaxLength anywhere: OwnerId is the only text column, and the application
+            // writes no other string here. S-06 pins that property set in a test.
+            batch.Property(b => b.OwnerId).IsRequired();
+            batch.HasIndex(b => b.OwnerId);
+
+            batch.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(b => b.OwnerId)
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
         });
