@@ -695,8 +695,8 @@ captured at the time and recorded in the runbook.
 #### Manual
 
 - [x] 2.5 App runs locally in Development via `--launch-profile http`, not `--no-launch-profile` — 49cfb8f
-- [ ] 2.6 Completed batch row sums to the candidate count, `EditedCount` matches
-- [ ] 2.7 Abandoned batch leaves counters below the candidate count
+- [x] 2.6 Completed batch row sums to the candidate count, `EditedCount` matches
+- [x] 2.7 Abandoned batch leaves counters below the candidate count
 - [ ] 2.8 A save failure during accept neither advances the session nor increments the counter, and a
       retry after the connection is restored writes exactly one card and one increment
 
