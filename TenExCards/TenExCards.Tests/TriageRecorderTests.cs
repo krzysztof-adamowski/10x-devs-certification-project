@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -147,8 +148,37 @@ public class TriageRecorderTests(TenExCardsWebApplicationFactory factory)
         scope.ServiceProvider.GetRequiredService<ITriageRecorder>().Should().BeOfType<TriageRecorder>();
     }
 
+    [Fact]
+    public async Task EveryMember_WhenTheDatabaseHangs_ReturnsOnItsOwnBoundNotEfsRetryBudget()
+    {
+        // The shared factory retries for ~30s. Two unbounded calls would cost the learner a minute
+        // behind the _busy guard, on paths that show no progress at all.
+        var recorder = new TriageRecorder(new HangingDbContextFactory(), NullLogger<TriageRecorder>.Instance);
+        var elapsed = Stopwatch.StartNew();
+
+        var id = await recorder.OpenBatchAsync("owner-1", 5, CancellationToken.None);
+        await recorder.RecordAcceptAsync("owner-1", Guid.NewGuid(), edited: false, CancellationToken.None);
+
+        elapsed.Stop();
+        id.Should().BeNull();
+        elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(15),
+            "two calls bounded at 2s each must not wait on the full retry budget");
+    }
+
     private sealed class ThrowingDbContextFactory : IDbContextFactory<AppDbContext>
     {
         public AppDbContext CreateDbContext() => throw new InvalidOperationException("no database");
+    }
+
+    /// <summary>Never answers; only the recorder's own bound ends the wait.</summary>
+    private sealed class HangingDbContextFactory : IDbContextFactory<AppDbContext>
+    {
+        public AppDbContext CreateDbContext() => throw new NotSupportedException();
+
+        public async Task<AppDbContext> CreateDbContextAsync(CancellationToken ct = default)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(60), ct);
+            throw new InvalidOperationException("unreachable");
+        }
     }
 }

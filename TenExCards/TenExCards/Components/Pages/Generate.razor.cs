@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Options;
@@ -178,8 +178,6 @@ public partial class Generate : IAsyncDisposable
             }
 
             _session = new TriageSession(result.Candidates!);
-            _batchId = await Recorder.OpenBatchAsync(
-                _ownerId!, result.Candidates!.Count, CancellationToken.None);
             _saveError = null;
             ClearEdit();
 
@@ -187,6 +185,11 @@ public partial class Generate : IAsyncDisposable
             // candidates and the text they came from exist.
             _passage = string.Empty;
             _focusHint = string.Empty;
+
+            // Below the clearing, never above: an await here would render with the passage and its
+            // candidates both alive in the circuit.
+            _batchId = await Recorder.OpenBatchAsync(
+                _ownerId!, _session.BatchSize, CancellationToken.None);
 
             _stage = Stage.Triaging;
             await SetUnloadWarningAsync(true);
