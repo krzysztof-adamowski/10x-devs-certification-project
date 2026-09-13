@@ -536,3 +536,6 @@ first milestone. Closure entries are written when a milestone closes.)
   Archived 2026-09-13 → `context/archive/2026-09-12-passage-to-saved-cards/`. Lesson: —.
 - **S-03: user can correct a candidate's wording and then accept the corrected version.** —
   Archived 2026-09-13 → `context/archive/2026-09-13-edit-before-accepting/`. Lesson: —.
+- **S-06: user, acting as the product's owner, can determine the acceptance rate, the share of
+  cards produced by generation rather than typed by hand, and the edit rate on accepted cards.** —
+  Archived 2026-09-14 → `context/archive/2026-09-13-outcome-recording/`. Lesson: —.
