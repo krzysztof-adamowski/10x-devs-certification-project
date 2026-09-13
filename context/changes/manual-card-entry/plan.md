@@ -446,25 +446,25 @@ success criterion, not an assumption.
 
 #### Automated
 
-- [x] 1.1 `CardBounds.cs` exists and declares both values as `const int`
-- [x] 1.2 Solution builds
-- [x] 1.3 Tests pass
-- [x] 1.4 `has-pending-model-changes` reports none
-- [x] 1.5 No `GenerationOptions` property and no `appsettings.json` key for either bound
+- [x] 1.1 `CardBounds.cs` exists and declares both values as `const int` — abdd5b4
+- [x] 1.2 Solution builds — abdd5b4
+- [x] 1.3 Tests pass — abdd5b4
+- [x] 1.4 `has-pending-model-changes` reports none — abdd5b4
+- [x] 1.5 No `GenerationOptions` property and no `appsettings.json` key for either bound — abdd5b4
 
 #### Manual
 
-- [x] 1.6 `CardBounds`' XML doc names its readers
+- [x] 1.6 `CardBounds`' XML doc names its readers — abdd5b4
 
 ### Phase 2: The manual-entry page
 
 #### Automated
 
-- [ ] 2.1 Solution builds
-- [ ] 2.2 Tests pass
+- [x] 2.1 Solution builds
+- [x] 2.2 Tests pass
 - [ ] 2.3 Suite passes with `secrets.json` moved aside, the way CI sees it
-- [ ] 2.4 `CardEntry.razor` carries neither `@rendermode` nor `[AllowAnonymous]`
-- [ ] 2.5 The page is under `Components/Pages/`, not `Components/Account/Pages/`
+- [x] 2.4 `CardEntry.razor` carries neither `@rendermode` nor `[AllowAnonymous]`
+- [x] 2.5 The page is under `Components/Pages/`, not `Components/Account/Pages/`
 - [ ] 2.6 No new migration implied
 
 #### Manual
