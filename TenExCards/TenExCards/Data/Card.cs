@@ -24,7 +24,8 @@ public class Card
     public DateTimeOffset CreatedAt { get; set; }
 }
 
-/// <summary>Written as <see cref="Generated"/> here; <see cref="Manual"/> is what S-05 adds.</summary>
+/// <summary><see cref="Generated"/> is written at triage; <see cref="Manual"/> only by the
+/// hand-written form at <c>/cards/new</c>.</summary>
 public enum CardOrigin
 {
     Generated = 1,

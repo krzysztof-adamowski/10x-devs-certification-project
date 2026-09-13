@@ -100,6 +100,26 @@ What the triage surface deliberately does **not** offer: any way to find, edit o
 once saved (`S-04`). There is no card list, and
 the completion summary must not link to one.
 
+**Writing a card by hand is live** as of 2026-09-13 (`S-05`, change `manual-card-entry`):
+`Components/Pages/CardEntry.razor` at `/cards/new`, saving with `CardOrigin.Manual` and
+`edited: false` — there was no candidate to edit, and `S-06`'s edit rate measures generation. It
+is **statically rendered**, on the Identity pages' `EditForm`-POST pattern rather than
+`Generate`'s circuit, and it is reached from a link in `Generate`'s compose branch only — no nav
+item and no link from `Home`, because the PRD's 75%-generated target is only meaningful while
+generation stays the default path. Two mechanisms are worth knowing before touching either page,
+and both are silent when wrong:
+
+- **Enhanced navigation is a fetch, so it never fires `beforeunload`.** The unload warning that
+  protects an untriaged batch is a `beforeunload` handler, so an in-app link rendered on the
+  **triage** screen would discard the batch with no warning at all. That is why the manual link is
+  confined to `Composing`/`Failed`, and why a Playwright test pins it out of triage rather than
+  leaving it to review.
+- **A static `EditForm` POST that re-renders duplicates its write on refresh.** The Identity pages
+  dodge this by redirecting on success; a page that stays put does not. `/cards/new` therefore
+  post-redirect-gets back to itself carrying `?written=N`, so `F5` re-issues a harmless `GET`. That
+  tally is learner-editable and display-only — bind it as a `string`, not `int?`, which throws a
+  `500` on a non-numeric value.
+
 ### Authorization defaults to protected
 
 `Program.cs` sets an authorization **fallback policy** requiring an authenticated user. A fallback
