@@ -528,3 +528,5 @@ first milestone. Closure entries are written when a milestone closes.)
   Archived 2026-09-12 → `context/archive/2026-09-12-accounts-and-sessions/`. Lesson: —.
 - **S-04: user can locate one of their own saved cards and either correct it or remove it.** —
   Archived 2026-09-13 → `context/archive/2026-09-13-manage-saved-cards/`. Lesson: —.
+- **S-05: user can write a card by hand and save it, without generating one first.** —
+  Archived 2026-09-13 → `context/archive/2026-09-13-manual-card-entry/`. Lesson: —.
