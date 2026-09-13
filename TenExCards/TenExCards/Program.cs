@@ -55,6 +55,9 @@ if (!e2e)
 }
 
 builder.Services.AddScoped<ICardStore, CardStore>();
+// Outside the e2e guard with ICardStore: it rides the AppDbContext factory, which the
+// harness swaps, so the browser suite records outcomes too.
+builder.Services.AddScoped<ITriageRecorder, TriageRecorder>();
 
 // EnableRetryOnFailure above is not optional: Azure SQL produces transient faults, and a retry the
 // application does not make becomes a user-visible failure against a 2s acknowledgement budget.

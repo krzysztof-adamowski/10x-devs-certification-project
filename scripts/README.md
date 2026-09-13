@@ -14,6 +14,9 @@ your own machine in one command.
 | `pack.py` | Is this archive safe to upload? | any of four shape assertions fails |
 | `verify_deploy.py` | Did the deploy actually work? | the page or any same-origin asset is not `200` |
 
+`outcome_rates.sql` is a third file here and is **not** one of those two: it gates nothing, runs in
+no pipeline, and only reads. See `## outcome_rates.sql` at the bottom.
+
 ## Why these exist
 
 Every failure they catch **deploys successfully** and then breaks at runtime. `az webapp deploy`
@@ -92,3 +95,12 @@ that cmdlet is banned in `../TenExCards/AGENTS.md`.
 Keep the pattern: arguments default to the documented paths so the same invocation works in CI and
 on a laptop, the failure message names what to fix rather than only that something failed, and
 anything CI depends on is runnable by hand.
+
+## `outcome_rates.sql`
+
+The `FR-013` rates — acceptance, AI-origin share, edit rate — as five labelled result sets. Read-only
+and run by hand; there is no in-product surface for these by design. CI never calls it.
+
+The connection procedure, the two-table split, and the three readings that look like breakage and are
+not, are in `../TenExCards/AGENTS.md` under `### Reading the outcome rates`. The script itself is the
+authority on the arithmetic.
