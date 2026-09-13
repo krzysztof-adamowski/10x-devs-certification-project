@@ -1,0 +1,57 @@
+@page "/cards/new"
+@using TenExCards.Data
+
+@* STATICALLY RENDERED ON PURPOSE — a two-field form needs no circuit, and the redirect on save is
+   what stops a refresh writing a second card. *@
+
+<PageTitle>Write a card</PageTitle>
+
+<h1>Write a card</h1>
+
+<div class="row">
+    <div class="col-lg-8">
+        @* _saveError guard: the tally is a GET-time query value, so without it a failed save
+           renders "saved" directly above "could not be saved". *@
+        @if (_saveError is null && WrittenThisVisit > 0)
+        {
+            <div class="alert alert-success" role="alert">
+                @WrittenThisVisit card@(WrittenThisVisit == 1 ? "" : "s") written this visit.
+            </div>
+        }
+
+        @if (_saveError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_saveError</div>
+        }
+
+        <p>
+            Two things make a card worth keeping: it tests <strong>one load-bearing claim</strong>,
+            and its prompt admits <strong>one defensible answer</strong>.
+        </p>
+
+        <EditForm Model="Input" method="post" OnValidSubmit="SaveAsync" FormName="card-entry">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+
+            <div class="mb-3">
+                <label for="Input.Prompt" class="form-label">Prompt</label>
+                <InputTextArea @bind-Value="Input.Prompt" id="Input.Prompt" class="form-control" rows="3"
+                               aria-required="true"
+                               placeholder="What does a contained database user authenticate against?" />
+                <div class="form-text">Up to @CardBounds.MaxPromptCharacters.ToString("N0") characters.</div>
+                <ValidationMessage For="() => Input.Prompt" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="Input.Answer" class="form-label">Answer</label>
+                <InputTextArea @bind-Value="Input.Answer" id="Input.Answer" class="form-control" rows="5"
+                               aria-required="true"
+                               placeholder="The database named in its own connection string." />
+                <div class="form-text">Up to @CardBounds.MaxAnswerCharacters.ToString("N0") characters.</div>
+                <ValidationMessage For="() => Input.Answer" class="text-danger" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save this card</button>
+        </EditForm>
+    </div>
+</div>

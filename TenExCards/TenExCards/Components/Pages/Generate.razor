@@ -45,6 +45,12 @@
     <button class="btn btn-primary" disabled="@(!CanSubmit || _busy)" @onclick="SubmitAsync">
         Generate cards
     </button>
+
+    @* Composing/Failed only. Enhanced navigation is a fetch and never fires beforeunload, so this
+       link during triage would discard the untriaged batch with no warning. *@
+    <p class="mt-3">
+        <a href="cards/new">Or write a card yourself</a>
+    </p>
 }
 else if (_stage is Stage.Generating)
 {

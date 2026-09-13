@@ -76,12 +76,14 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
         response.Headers.Location!.PathAndQuery.Should().StartWith("/Account/Login");
     }
 
-    [Fact]
-    public async Task GenerateRoute_Unauthenticated_RedirectsToLoginNever401()
+    [Theory]
+    [InlineData("/generate")]
+    [InlineData("/cards/new")]
+    public async Task ProductRoute_Unauthenticated_RedirectsToLoginNever401(string path)
     {
         using var client = CreateNoRedirectClient();
 
-        var response = await client.GetAsync("/generate");
+        var response = await client.GetAsync(path);
 
         // 302, never 401: verify_deploy.py treats 401 as a hard failure and burns the whole
         // warm-up budget before reporting misleading diagnostics.
