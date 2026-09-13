@@ -852,13 +852,13 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 #### Manual
 
 - [x] 2.5 Three read-only buttons identical in size and weight, none confirming — 54082ce
-- [x] 2.6 Edited accept stores the new wording with `Edited = 1`
-- [x] 2.7 Untouched accept stores `Edited = 0`
-- [x] 2.8 Editor opened and closed with no change stores `Edited = 0`
+- [x] 2.6 Edited accept stores the new wording with `Edited = 1` — d8766b9
+- [x] 2.7 Untouched accept stores `Edited = 0` — d8766b9
+- [x] 2.8 Editor opened and closed with no change stores `Edited = 0` — d8766b9
 - [x] 2.9 Cancel restores the generated wording and all three actions — 54082ce
 - [x] 2.10 Invalid edit disables Keep and reddens the counter; discard and cancel stay available — 54082ce
-- [x] 2.11 Handler refuses an invalid edit with the disabled attribute removed
-- [x] 2.12 Forced save failure keeps edit mode and the typing; retry saves once
+- [x] 2.11 Handler refuses an invalid edit with the disabled attribute removed — d8766b9
+- [x] 2.12 Forced save failure keeps edit mode and the typing; retry saves once — d8766b9
 
 ### Phase 3: The learner-perspective end-to-end test
 
@@ -874,8 +874,8 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 - [x] 3.6 App serves `/generate` with `Testing__E2E=true` and no key, connection string or vault access — 54082ce
 - [x] 3.7 Without the flag the app still fails at boot naming both Gemini settings — 54082ce
-- [x] 3.8 A deliberately broken assertion reddens the E2E step while the deploy still completes
-- [x] 3.9 The journey watched running headed at least once
+- [x] 3.8 A deliberately broken assertion reddens the E2E step while the deploy still completes — d8766b9
+- [x] 3.9 The journey watched running headed at least once — d8766b9
 
 ### Phase 4: Deploy and verify on the live instance
 
@@ -887,11 +887,11 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 #### Manual
 
 - [x] 4.3 Live `Cards` table has the `Edited` column — 54082ce
-- [x] 4.4 Live edited accept stores `Edited = 1`; untouched accept stores `Edited = 0`
-- [x] 4.5 An accepted edited card survives a refresh
-- [x] 4.6 Three actions equally prominent in a real browser, none confirming
-- [x] 4.7 Over-bound and emptied edits refused on the deployed circuit
-- [x] 4.8 No passage or candidate text in the App Service log stream during a full edit and accept
+- [x] 4.4 Live edited accept stores `Edited = 1`; untouched accept stores `Edited = 0` — d8766b9
+- [x] 4.5 An accepted edited card survives a refresh — d8766b9
+- [x] 4.6 Three actions equally prominent in a real browser, none confirming — d8766b9
+- [x] 4.7 Over-bound and emptied edits refused on the deployed circuit — d8766b9
+- [x] 4.8 No passage or candidate text in the App Service log stream during a full edit and accept — d8766b9
 
 ### Phase 5: Update the repository record
 
@@ -903,6 +903,6 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Manual
 
-- [x] 5.4 Every added fact lives in exactly one file
-- [x] 5.5 Roadmap `S-03`, its inherited-test note and this plan tell the same story
-- [x] 5.6 A newcomer can start the E2E suite from `TenExCards.E2E/AGENTS.md` alone
+- [x] 5.4 Every added fact lives in exactly one file — d8766b9
+- [x] 5.5 Roadmap `S-03`, its inherited-test note and this plan tell the same story — d8766b9
+- [x] 5.6 A newcomer can start the E2E suite from `TenExCards.E2E/AGENTS.md` alone — d8766b9
