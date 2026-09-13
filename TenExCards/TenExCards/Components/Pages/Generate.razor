@@ -41,7 +41,7 @@
         </div>
     </div>
 
-    <button class="btn btn-primary" disabled="@(!CanSubmit)" @onclick="SubmitAsync">
+    <button class="btn btn-primary" disabled="@(!CanSubmit || _busy)" @onclick="SubmitAsync">
         Generate cards
     </button>
 }
@@ -76,9 +76,14 @@ else if (_stage is Stage.Triaging && _pending.Count > 0)
     </div>
 
     <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-primary" style="min-width: 10rem" @onclick="AcceptAsync">Keep this card</button>
-        <button class="btn btn-primary" style="min-width: 10rem" @onclick="RejectAsync">Discard this card</button>
+        <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="AcceptAsync">Keep this card</button>
+        <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="RejectAsync">Discard this card</button>
     </div>
+
+    @if (_busy)
+    {
+        <p class="text-muted">Saving…</p>
+    }
 
     <p class="text-muted">
         Cards you have not decided on are discarded when you leave this page. They cannot be

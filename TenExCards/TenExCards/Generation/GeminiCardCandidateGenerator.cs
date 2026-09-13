@@ -47,9 +47,23 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
         IProgress<GenerationProgress> progress,
         CancellationToken ct)
     {
-        var target = PassageBounds.TargetCandidateCount(passage, _options);
-        var messages = BuildMessages(passage, focusHint, target);
-        var options = BuildOptions();
+        List<ChatMessage> messages;
+        ChatCompletionOptions options;
+        try
+        {
+            // Inside the try because Math.Clamp throws when MinCandidates exceeds MaxCandidates —
+            // a configuration typo must not escape as an exception into a circuit event handler.
+            var target = PassageBounds.TargetCandidateCount(passage, _options);
+            messages = BuildMessages(passage, focusHint, target);
+            options = BuildOptions();
+        }
+        catch (Exception)
+        {
+            return GenerationResult.Failed(
+                GenerationFailure.ProviderError,
+                "The card generator is misconfigured and could not start. Your passage is still here.");
+        }
+
         var lastStatus = 0;
 
         foreach (var model in _models)
@@ -185,7 +199,16 @@ public class GeminiCardCandidateGenerator : ICardCandidateGenerator
                 "The card generator returned something unreadable. Your passage is still here — please try again.");
         }
 
-        var candidates = (envelope?.Candidates ?? [])
+        // A null envelope is the provider answering wrongly, not the passage being unusable — and
+        // Refused is documented as having exactly one cause.
+        if (envelope?.Candidates is null)
+        {
+            return GenerationResult.Failed(
+                GenerationFailure.Malformed,
+                "The card generator returned something unreadable. Your passage is still here — please try again.");
+        }
+
+        var candidates = envelope.Candidates
             .Where(c => !string.IsNullOrWhiteSpace(c.Prompt) && !string.IsNullOrWhiteSpace(c.Answer))
             .Select(c => new CandidateCard(c.Prompt!.Trim(), c.Answer!.Trim()))
             .ToList();

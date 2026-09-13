@@ -57,6 +57,11 @@ public partial class Generate : IAsyncDisposable
     private IJSObjectReference? _unloadModule;
     private bool _unloadWarningRegistered;
 
+    // Blazor does not serialise event handlers, and every triage handler mutates _pending across an
+    // await. Without this a second click can save the same card twice and advance past the next one
+    // unseen. No lock: all mutation runs on the circuit dispatcher.
+    private bool _busy;
+
     private CandidateCard Current => _pending[0];
 
     private bool PassageOverLimit => _passage.Length > Options.MaxPassageCharacters;
@@ -73,6 +78,13 @@ public partial class Generate : IAsyncDisposable
 
     private async Task SubmitAsync()
     {
+        // A second click before the render reaches the browser would start a second generation and
+        // spend the daily quota twice.
+        if (_busy)
+        {
+            return;
+        }
+
         _validationMessage = null;
         _failureMessage = null;
 
@@ -94,11 +106,14 @@ public partial class Generate : IAsyncDisposable
             return;
         }
 
+        _busy = true;
         _stage = Stage.Generating;
         _chunks = 0;
         _elapsedSeconds = 0;
         _cancelledByLearner = false;
         _startedAt = DateTimeOffset.UtcNow;
+
+        _cts?.Dispose();
         _cts = new CancellationTokenSource(TimeSpan.FromSeconds(Options.TimeoutSeconds));
 
         // Rendered before the await, or the 2s acknowledgement measures the model instead of the form.
@@ -111,48 +126,67 @@ public partial class Generate : IAsyncDisposable
             _ = InvokeAsync(StateHasChanged);
         });
 
-        GenerationResult result;
         try
         {
-            result = await Generator.GenerateAsync(
-                _passage,
-                string.IsNullOrWhiteSpace(_focusHint) ? null : _focusHint,
-                progress,
-                _cts.Token);
+            GenerationResult result;
+            try
+            {
+                result = await Generator.GenerateAsync(
+                    _passage,
+                    string.IsNullOrWhiteSpace(_focusHint) ? null : _focusHint,
+                    progress,
+                    _cts.Token);
+            }
+            catch (Exception)
+            {
+                if (_cancelledByLearner)
+                {
+                    _stage = Stage.Composing;
+                    return;
+                }
+
+                _failureMessage = "Something went wrong while generating. Your passage is still here — please try again.";
+                _stage = Stage.Failed;
+                return;
+            }
+            finally
+            {
+                StopElapsedTimer();
+            }
+
+            if (_cancelledByLearner)
+            {
+                _stage = Stage.Composing;
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                _failureMessage = result.Message;
+                _stage = Stage.Failed;
+                return;
+            }
+
+            _pending.Clear();
+            _pending.AddRange(result.Candidates!);
+            _batchSize = _pending.Count;
+            _triagedCount = 0;
+            _saved = 0;
+            _discarded = 0;
+            _saveError = null;
+
+            // The passage goes before the triage state is entered. There is no moment in which both
+            // candidates and the text they came from exist.
+            _passage = string.Empty;
+            _focusHint = string.Empty;
+
+            _stage = Stage.Triaging;
+            await SetUnloadWarningAsync(true);
         }
         finally
         {
-            StopElapsedTimer();
+            _busy = false;
         }
-
-        if (_cancelledByLearner)
-        {
-            _stage = Stage.Composing;
-            return;
-        }
-
-        if (!result.IsSuccess)
-        {
-            _failureMessage = result.Message;
-            _stage = Stage.Failed;
-            return;
-        }
-
-        _pending.Clear();
-        _pending.AddRange(result.Candidates!);
-        _batchSize = _pending.Count;
-        _triagedCount = 0;
-        _saved = 0;
-        _discarded = 0;
-        _saveError = null;
-
-        // The passage goes before the triage state is entered. There is no moment in which both
-        // candidates and the text they came from exist.
-        _passage = string.Empty;
-        _focusHint = string.Empty;
-
-        _stage = Stage.Triaging;
-        await SetUnloadWarningAsync(true);
     }
 
     private async Task CancelAsync()
@@ -166,30 +200,69 @@ public partial class Generate : IAsyncDisposable
 
     private async Task AcceptAsync()
     {
-        _saveError = null;
-
-        try
+        if (!TryBeginTriage())
         {
-            await Store.SaveAsync(_ownerId!, Current.Prompt, Current.Answer, CardOrigin.Generated, CancellationToken.None);
-        }
-        catch (Exception)
-        {
-            // Never advance and never move to Failed: the card was not saved, and Failed would
-            // re-render a passage that is gone by design. The candidate stays put so a retry
-            // re-issues the same save rather than queueing a second one.
-            _saveError = "That card could not be saved just now. Nothing was lost — try again.";
             return;
         }
 
-        _saved++;
-        await AdvanceAsync();
+        try
+        {
+            _saveError = null;
+
+            try
+            {
+                await Store.SaveAsync(_ownerId!, Current.Prompt, Current.Answer, CardOrigin.Generated, CancellationToken.None);
+            }
+            catch (Exception)
+            {
+                // Never advance and never move to Failed: the card was not saved, and Failed would
+                // re-render a passage that is gone by design. The candidate stays put so a retry
+                // re-issues the same save rather than queueing a second one.
+                _saveError = "That card could not be saved just now. Nothing was lost — try again.";
+                return;
+            }
+
+            _saved++;
+            await AdvanceAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task RejectAsync()
     {
-        _saveError = null;
-        _discarded++;
-        await AdvanceAsync();
+        if (!TryBeginTriage())
+        {
+            return;
+        }
+
+        try
+        {
+            _saveError = null;
+            _discarded++;
+            await AdvanceAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Claims the triage lock, or refuses when one is already in flight or the batch has emptied.
+    /// The count check is what stops a late handler indexing past the end of the list.
+    /// </summary>
+    private bool TryBeginTriage()
+    {
+        if (_busy || _stage is not Stage.Triaging || _pending.Count == 0)
+        {
+            return false;
+        }
+
+        _busy = true;
+        return true;
     }
 
     private async Task AdvanceAsync()
@@ -219,6 +292,8 @@ public partial class Generate : IAsyncDisposable
 
     private void StartElapsedTimer()
     {
+        // Never orphan a previous timer: its tick loop would keep rendering against a live component.
+        StopElapsedTimer();
         _elapsedTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         _ = TickAsync(_elapsedTimer);
     }
