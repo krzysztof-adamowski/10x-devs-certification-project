@@ -58,3 +58,36 @@
   platform's own startup evidence — a fresh `Application started` line timestamped after the restart was
   issued — and only then perform the step whose validity depends on it.
 - **Applies to**: plan, implement, impl-review
+
+## Put the validation gate on the call, not on one route to it
+
+- **Context**: Any rule enforced at a seam — a filter, a pipeline stage, a mapper — where a later
+  slice adds a second way to reach the same destination.
+- **Problem**: `CandidateBounds` enforced the 500/1000 column widths between the generator and the
+  pending list, which was the only route to `SaveAsync` when it was written. `S-03` added an edit
+  path that goes from a textarea straight to `SaveAsync`, bypassing that seam entirely. **Every
+  existing test stayed green**, because each one still entered through the generator. The failure
+  would have surfaced as Azure SQL throwing on a 501-character prompt — not a truncation, a throw —
+  stranding the learner on a card only they could fix.
+- **Rule**: When a gate protects a destination, ask what the destination is, not what the current
+  caller is. A filter over a *collection at one seam* is not a gate on `SaveAsync`; extract the
+  predicate so the gate is reachable from every route, and re-check it in the handler rather than
+  trusting a disabled control, which dev tools remove. The corollary for review: "all tests pass"
+  says nothing about a path no test enters — ask which routes to the destination exist now that did
+  not when the gate was written.
+- **Applies to**: plan, implement, impl-review
+
+## A negative check needs a control, or it cannot fail
+
+- **Context**: Any success criterion of the form "X must be absent" — a symbol missing from an
+  artifact, a string not in a log, a resource not in a group.
+- **Problem**: `S-03` verified that the Debug-only E2E harness is absent from a Release publish with
+  `strings <dll> | grep -c ScriptedCardCandidateGenerator`, which answered `0`. It also answered `0`
+  for `CandidateEdit`, a type that certainly **is** in that assembly — `strings` was not reading the
+  metadata at all. A broken command and a genuine absence are the same output, and the criterion
+  would have been ticked on a check that could never fail.
+- **Rule**: Every absence check carries a **control that must be found** by the same command in the
+  same run. If the control is missing, the check is broken and its verdict is void — not a pass.
+  This is the sibling of "prove the check before trusting the result": there, a wrong command
+  returned a wrong answer; here, a wrong command returns the *desired* answer, which is worse.
+- **Applies to**: plan, implement, impl-review

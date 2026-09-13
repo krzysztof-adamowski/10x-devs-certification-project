@@ -10,9 +10,10 @@ platform research and the risk register are in `context/foundation/infrastructur
 *Paths.* Agent sessions are rooted at the **repo root**, one level above this file, and paths here
 are written from there: `context/`, `infra/`, `scripts/` and `.github/` are siblings of
 `TenExCards/`, not children of it. **`TenExCards/` is a solution folder, not the project folder**
-— alongside this file it holds `TenExCards.slnx` and two project subfolders one level deeper:
-`TenExCards/TenExCards/` (the product code) and `TenExCards/TenExCards.Tests/` (`S-01`, which
-carries its own `AGENTS.md` holding the testing rules). Product
+— alongside this file it holds `TenExCards.slnx` and three project subfolders one level deeper:
+`TenExCards/TenExCards/` (the product code), `TenExCards/TenExCards.Tests/` (`S-01`, which
+carries its own `AGENTS.md` holding the testing rules) and `TenExCards/TenExCards.E2E/` (`S-03`,
+the browser-driven journey, which likewise carries its own `AGENTS.md`). Product
 code is named relative to that inner folder — one level below this file's own directory —
 `Program.cs` means `TenExCards/TenExCards/Program.cs` and `Components/Pages/Home.razor` means
 `TenExCards/TenExCards/Components/Pages/Home.razor`. That is also why `dotnet` needs
@@ -85,8 +86,18 @@ a *protected property on `ComponentBase`* that the framework fills in, so a `.ra
 inherits it. Do **not** inject `ResourceAssetCollection` — it is not a registered service, so that
 compiles cleanly and then throws `InvalidOperationException` at the first render of the page.
 
-What the triage surface deliberately does **not** offer: editing a candidate before accepting it
-(`S-03`), and any way to find, edit or delete a card once saved (`S-04`). There is no card list, and
+**Editing a candidate before accepting it is live** as of 2026-09-13 (`S-03`, change
+`edit-before-accepting`). Triage offers three actions at equal prominence, and the edit swaps the
+card body for two bounded, counted fields in place rather than navigating anywhere — the batch lives
+in this component's state and a route change would dispose it. An accepted card records whether the
+learner reworded it, in `Card.Edited`, because that fact is observable **only** at acceptance: the
+candidate is discarded immediately after and the passage is already gone, so `S-06` cannot backfill
+it. The counters moved out of the component into `Generation/TriageSession.cs`, which is what makes
+"each candidate is triaged exactly once" assertable — the component keeps the I/O and the `_busy`
+re-entrancy guard.
+
+What the triage surface deliberately does **not** offer: any way to find, edit or delete a card
+once saved (`S-04`). There is no card list, and
 the completion summary must not link to one.
 
 ### Authorization defaults to protected
@@ -160,6 +171,17 @@ Product:
   against `CardBounds` itself: an assertion whose expected value reads the constant under test is a
   tautology, and the EF in-memory provider ignores `HasMaxLength`, so nothing else would catch a
   drift.
+- **Never save an edited candidate without re-checking the column bounds in the handler.**
+  `CandidateBounds` sits between the generator and the pending list; the edit path does not pass
+  through it, so `CandidateEdit.IsCommittable` re-checks on the way to `SaveAsync`. A disabled
+  button is a courtesy and can be removed in dev tools. An over-long prompt reaches Azure SQL as a
+  throw, not a truncation — the learner is then stuck on a card only they can fix, and truncating
+  instead would be worse and is forbidden by the no-silent-loss guardrail.
+- **Never add friction to editing that accept and reject do not also carry.** US-01 requires the
+  three at equal prominence, achieved by literal sameness of class and `min-width`. No confirmation
+  step, no outline variant, no smaller size. The recorded hazard is that editing becomes the path of
+  least resistance, and the PRD's answer is to *measure* it — the `Edited` column — not to obstruct
+  it.
 - **Never use FluentAssertions.** Assertions use AwesomeAssertions; see
   `TenExCards.Tests/AGENTS.md`.
 
@@ -168,6 +190,14 @@ prohibition without its failure mode is one an agent talks itself out of. `## De
 the diagnostic detail that consequence implies: the commands, the dates, the exact strings, and
 how to tell a false positive from a real one. A fact goes in one or the other, never both:
 
+- **Never make the E2E harness reachable from a Release build.** `Testing:E2E` swaps in a scripted
+  generator and an in-memory store. **Two mechanisms enforce this and both are required**: `#if
+  DEBUG` around `Testing/E2EHarness.cs` and `Generation/ScriptedCardCandidateGenerator.cs`, and
+  `Condition="'$(Configuration)' == 'Debug'"` on the `Microsoft.EntityFrameworkCore.InMemory`
+  package reference. Remove either and a test provider ships to production with nothing reporting
+  it. The harness also requires `IsDevelopment()`, so the flag alone does nothing deployed. Verify
+  by byte-searching the published assembly **with a control name that must be found** — `strings`
+  returned zero for a type that *is* present, which is indistinguishable from a real absence.
 - **Never run `az webapp up`.** It is deprecated. Deploy with
   `az webapp deploy --src-path <zip> --type zip`.
 - **Never upload an archive `scripts/pack.py` has not passed.** Build it with that script — it packs
@@ -493,9 +523,18 @@ Nothing in the output separates the two. Snapshot (`az appservice plan show`,
 ships. That was verified by deliberately failing one and reading the run's *step list*: every step
 after `Test` showed skipped, not merely a red run.
 
-**The rules for writing tests live next to the tests, in `TenExCards.Tests/AGENTS.md`.** Read that
-file before adding one. Only the FluentAssertions prohibition stays here, in `## Never do these`,
-because it is a licensing rule rather than a testing rule.
+**`TenExCards.E2E` also exists** (Playwright, landed by `S-03` on 2026-09-13) and **does not gate
+the deploy** — it runs in CI with `continue-on-error: true`, the only non-gating assertion in that
+file, because a browser suite fails for reasons unrelated to the change under deploy. It drives a
+locally started application over HTTP against a scripted generator, so it never spends Gemini quota
+and never asserts on a model's prose. `TenExCards.Tests` remains the gate and is still named there
+by path, so the two cannot be confused for one another.
+
+**The rules for writing tests live next to the tests** — in `TenExCards.Tests/AGENTS.md` and
+`TenExCards.E2E/AGENTS.md` respectively. Read the right one before adding a test; between them they
+own the harness details, the browser-install step and the selection rules, and none of that is
+repeated here. Only the FluentAssertions prohibition stays here, in `## Never do these`, because it
+is a licensing rule rather than a testing rule.
 
 Ship the test in the same change as the code it asserts.
 

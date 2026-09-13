@@ -49,6 +49,25 @@ an application-level check, so the only database-level guard on email uniqueness
 `UserNameIndex` standing behind it. The duplicate-email test passes either way — it goes through
 that same application-level check — so the race would reopen silently with every test still green.
 
+## This project, or `TenExCards.E2E`?
+
+Two test projects now exist and only this one stops a deploy. Put a test **here** when it can be
+decided without a browser: a pure rule, a store query, a route's status code, a configured policy.
+Put it in **`TenExCards.E2E`** only when the assertion is genuinely about what a learner sees across
+a real page — the journey, equal prominence, an interactive circuit. That project drives the app
+over HTTP, does not gate the deploy, and has its own `AGENTS.md`; its rules are not repeated here.
+
+`Testing:E2E` is **not this project's flag**. This project's harness is
+`TenExCardsWebApplicationFactory` with its own settings, unchanged by `S-03`; `Testing:E2E` selects
+the Debug-only scripted-generator harness that the browser suite starts. Do not set it here, and do
+not confuse it with `Testing:SkipStartupMigration`, whose "run the migration" default `S-03` left
+exactly as it was.
+
+The pattern to reach for first is still the one below: **the counters that decide "each candidate is
+triaged exactly once" were extracted out of the component into `TriageSession` precisely so this
+project could assert them** without rendering anything. When a rule is stuck inside an
+`InteractiveServer` component, move the rule — do not reach for a component-rendering library.
+
 ## Assertions use AwesomeAssertions
 
 **Never FluentAssertions.** Its v8 moved to a paid commercial licence; AwesomeAssertions is the

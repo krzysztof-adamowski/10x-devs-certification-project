@@ -838,7 +838,7 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 - [x] 1.5 Migration applies cleanly to `sqldb-tenexcards-dev` with `Edited` as `bit NOT NULL` defaulting false — 00b91cd
 - [x] 1.6 Existing dev rows read `Edited = 0` with no backfill — 00b91cd
-- [ ] 1.7 Production startup log names `AddCardEdited` as the one applied migration, read from a fresh `Application started` line
+- [x] 1.7 Production startup log names `AddCardEdited` as the one applied migration, read from a fresh `Application started` line — 54082ce
 
 ### Phase 2: The edit affordance
 
@@ -851,12 +851,12 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Manual
 
-- [x] 2.5 Three read-only buttons identical in size and weight, none confirming
+- [x] 2.5 Three read-only buttons identical in size and weight, none confirming — 54082ce
 - [ ] 2.6 Edited accept stores the new wording with `Edited = 1`
 - [ ] 2.7 Untouched accept stores `Edited = 0`
 - [ ] 2.8 Editor opened and closed with no change stores `Edited = 0`
-- [x] 2.9 Cancel restores the generated wording and all three actions
-- [x] 2.10 Invalid edit disables Keep and reddens the counter; discard and cancel stay available
+- [x] 2.9 Cancel restores the generated wording and all three actions — 54082ce
+- [x] 2.10 Invalid edit disables Keep and reddens the counter; discard and cancel stay available — 54082ce
 - [ ] 2.11 Handler refuses an invalid edit with the disabled attribute removed
 - [ ] 2.12 Forced save failure keeps edit mode and the typing; retry saves once
 
@@ -864,16 +864,16 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [x] 3.1 Solution builds
-- [x] 3.2 Existing tests pass unchanged
-- [x] 3.3 Journey passes locally after `playwright install chromium`
-- [x] 3.4 Release publish carries no in-memory provider and no `ScriptedCardCandidateGenerator`
-- [x] 3.5 `MigrationGuardTests` still passes
+- [x] 3.1 Solution builds — 54082ce
+- [x] 3.2 Existing tests pass unchanged — 54082ce
+- [x] 3.3 Journey passes locally after `playwright install chromium` — 54082ce
+- [x] 3.4 Release publish carries no in-memory provider and no `ScriptedCardCandidateGenerator` — 54082ce
+- [x] 3.5 `MigrationGuardTests` still passes — 54082ce
 
 #### Manual
 
-- [x] 3.6 App serves `/generate` with `Testing__E2E=true` and no key, connection string or vault access
-- [x] 3.7 Without the flag the app still fails at boot naming both Gemini settings
+- [x] 3.6 App serves `/generate` with `Testing__E2E=true` and no key, connection string or vault access — 54082ce
+- [x] 3.7 Without the flag the app still fails at boot naming both Gemini settings — 54082ce
 - [ ] 3.8 A deliberately broken assertion reddens the E2E step while the deploy still completes
 - [ ] 3.9 The journey watched running headed at least once
 
@@ -881,12 +881,12 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [ ] 4.1 `main` workflow run green across the full step list
-- [ ] 4.2 `scripts/verify_deploy.py` passes in that run
+- [x] 4.1 `main` workflow run green across the full step list
+- [x] 4.2 `scripts/verify_deploy.py` passes in that run
 
 #### Manual
 
-- [ ] 4.3 Live `Cards` table has the `Edited` column
+- [x] 4.3 Live `Cards` table has the `Edited` column
 - [ ] 4.4 Live edited accept stores `Edited = 1`; untouched accept stores `Edited = 0`
 - [ ] 4.5 An accepted edited card survives a refresh
 - [ ] 4.6 Three actions equally prominent in a real browser, none confirming
@@ -897,9 +897,9 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [ ] 5.1 Solution builds and tests pass
-- [ ] 5.2 `TenExCards/AGENTS.md` names three project subfolders
-- [ ] 5.3 `TenExCards.E2E/AGENTS.md` exists and is referenced from `TenExCards/AGENTS.md`
+- [x] 5.1 Solution builds and tests pass
+- [x] 5.2 `TenExCards/AGENTS.md` names three project subfolders
+- [x] 5.3 `TenExCards.E2E/AGENTS.md` exists and is referenced from `TenExCards/AGENTS.md`
 
 #### Manual
 
