@@ -1,5 +1,6 @@
 @page "/generate"
 @rendermode InteractiveServer
+@using TenExCards.Data
 
 <PageTitle>Generate cards</PageTitle>
 
@@ -59,25 +60,62 @@ else if (_stage is Stage.Generating)
 
     <button class="btn btn-outline-secondary" @onclick="CancelAsync">Cancel</button>
 }
-else if (_stage is Stage.Triaging && _pending.Count > 0)
+else if (_stage is Stage.Triaging && _session is { IsComplete: false })
 {
-    <p class="text-muted">Card @(_triagedCount + 1) of @_batchSize</p>
+    <p class="text-muted">Card @_session.Position of @_session.BatchSize</p>
 
     @if (_saveError is not null)
     {
         <div class="alert alert-danger" role="alert">@_saveError</div>
     }
 
+    @if (_editValidationMessage is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_editValidationMessage</div>
+    }
+
     <div class="card mb-3">
         <div class="card-body">
-            <h2 class="card-title h5">@Current.Prompt</h2>
-            <p class="card-text">@Current.Answer</p>
+            @if (_editing)
+            {
+                <div class="mb-3">
+                    <label for="edit-prompt" class="form-label">Prompt</label>
+                    <textarea id="edit-prompt" class="form-control" rows="3"
+                              @bind="_editPrompt" @bind:event="oninput"></textarea>
+                    <div class="form-text @(EditPromptOverLimit ? "text-danger" : null)">
+                        @_editPrompt.Length.ToString("N0") / @CardBounds.MaxPromptCharacters.ToString("N0") characters
+                    </div>
+                </div>
+
+                <div>
+                    <label for="edit-answer" class="form-label">Answer</label>
+                    <textarea id="edit-answer" class="form-control" rows="5"
+                              @bind="_editAnswer" @bind:event="oninput"></textarea>
+                    <div class="form-text @(EditAnswerOverLimit ? "text-danger" : null)">
+                        @_editAnswer.Length.ToString("N0") / @CardBounds.MaxAnswerCharacters.ToString("N0") characters
+                    </div>
+                </div>
+            }
+            else
+            {
+                <h2 class="card-title h5">@Current.Prompt</h2>
+                <p class="card-text">@Current.Answer</p>
+            }
         </div>
     </div>
 
     <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="AcceptAsync">Keep this card</button>
-        <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="RejectAsync">Discard this card</button>
+        @if (_editing)
+        {
+            <button class="btn btn-primary" style="min-width: 10rem" disabled="@(_busy || !CanCommitEdit)" @onclick="AcceptAsync">Keep this card</button>
+            <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="CancelEdit">Cancel</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="AcceptAsync">Keep this card</button>
+            <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="RejectAsync">Discard this card</button>
+            <button class="btn btn-primary" style="min-width: 10rem" disabled="@_busy" @onclick="BeginEdit">Edit wording</button>
+        }
     </div>
 
     @if (_busy)
@@ -93,7 +131,7 @@ else if (_stage is Stage.Triaging && _pending.Count > 0)
 else if (_stage is Stage.Summary)
 {
     <p>
-        Saved @_saved card@(_saved == 1 ? "" : "s"), discarded @_discarded.
+        Saved @_session!.Saved card@(_session.Saved == 1 ? "" : "s"), discarded @_session.Discarded.
     </p>
 
     <button class="btn btn-primary" @onclick="StartOver">Paste another passage</button>

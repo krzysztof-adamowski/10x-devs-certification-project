@@ -829,25 +829,25 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [x] 1.1 Solution builds
-- [x] 1.2 Tests pass
-- [x] 1.3 Migration adds exactly one column to `Cards` and alters no Identity or Data Protection table
-- [x] 1.4 Round-trip test observed failing with the `CardStore` assignment removed
+- [x] 1.1 Solution builds — 00b91cd
+- [x] 1.2 Tests pass — 00b91cd
+- [x] 1.3 Migration adds exactly one column to `Cards` and alters no Identity or Data Protection table — 00b91cd
+- [x] 1.4 Round-trip test observed failing with the `CardStore` assignment removed — 00b91cd
 
 #### Manual
 
-- [x] 1.5 Migration applies cleanly to `sqldb-tenexcards-dev` with `Edited` as `bit NOT NULL` defaulting false
-- [x] 1.6 Existing dev rows read `Edited = 0` with no backfill
+- [x] 1.5 Migration applies cleanly to `sqldb-tenexcards-dev` with `Edited` as `bit NOT NULL` defaulting false — 00b91cd
+- [x] 1.6 Existing dev rows read `Edited = 0` with no backfill — 00b91cd
 - [ ] 1.7 Production startup log names `AddCardEdited` as the one applied migration, read from a fresh `Application started` line
 
 ### Phase 2: The edit affordance
 
 #### Automated
 
-- [ ] 2.1 Solution builds
-- [ ] 2.2 Tests pass
-- [ ] 2.3 `CandidateEditTests` observed failing with `Trim()` removed from `WasEdited`
-- [ ] 2.4 `AuthBoundaryTests` still shows `/generate` answering `302`
+- [x] 2.1 Solution builds
+- [x] 2.2 Tests pass
+- [x] 2.3 `CandidateEditTests` observed failing with `Trim()` removed from `WasEdited`
+- [x] 2.4 `AuthBoundaryTests` still shows `/generate` answering `302`
 
 #### Manual
 

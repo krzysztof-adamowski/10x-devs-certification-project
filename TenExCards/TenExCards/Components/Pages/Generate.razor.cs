@@ -40,12 +40,13 @@ public partial class Generate : IAsyncDisposable
     private string? _failureMessage;
     private string? _ownerId;
 
-    private readonly List<CandidateCard> _pending = [];
-    private int _batchSize;
-    private int _triagedCount;
-    private int _saved;
-    private int _discarded;
+    private TriageSession? _session;
     private string? _saveError;
+
+    private bool _editing;
+    private string _editPrompt = string.Empty;
+    private string _editAnswer = string.Empty;
+    private string? _editValidationMessage;
 
     private CancellationTokenSource? _cts;
     private PeriodicTimer? _elapsedTimer;
@@ -62,13 +63,19 @@ public partial class Generate : IAsyncDisposable
     // unseen. No lock: all mutation runs on the circuit dispatcher.
     private bool _busy;
 
-    private CandidateCard Current => _pending[0];
+    private CandidateCard Current => _session!.Current;
 
     private bool PassageOverLimit => _passage.Length > Options.MaxPassageCharacters;
 
     private bool FocusHintOverLimit => _focusHint.Length > Options.MaxFocusHintCharacters;
 
     private bool CanSubmit => !string.IsNullOrWhiteSpace(_passage) && !PassageOverLimit && !FocusHintOverLimit;
+
+    private bool CanCommitEdit => CandidateEdit.IsCommittable(_editPrompt, _editAnswer);
+
+    private bool EditPromptOverLimit => _editPrompt.Length > CardBounds.MaxPromptCharacters;
+
+    private bool EditAnswerOverLimit => _editAnswer.Length > CardBounds.MaxAnswerCharacters;
 
     protected override async Task OnInitializedAsync()
     {
@@ -167,13 +174,9 @@ public partial class Generate : IAsyncDisposable
                 return;
             }
 
-            _pending.Clear();
-            _pending.AddRange(result.Candidates!);
-            _batchSize = _pending.Count;
-            _triagedCount = 0;
-            _saved = 0;
-            _discarded = 0;
+            _session = new TriageSession(result.Candidates!);
             _saveError = null;
+            ClearEdit();
 
             // The passage goes before the triage state is entered. There is no moment in which both
             // candidates and the text they came from exist.
@@ -208,27 +211,41 @@ public partial class Generate : IAsyncDisposable
         try
         {
             _saveError = null;
+            _editValidationMessage = null;
+
+            var prompt = _editing ? _editPrompt.Trim() : Current.Prompt;
+            var answer = _editing ? _editAnswer.Trim() : Current.Answer;
+
+            // Re-checked here, not only on the button: a disabled attribute can be removed in dev
+            // tools, and an over-long prompt reaches Azure SQL as a throw rather than a truncation.
+            if (_editing && !CandidateEdit.IsCommittable(prompt, answer))
+            {
+                _editValidationMessage = EditRefusalReason(prompt, answer);
+                return;
+            }
+
+            var edited = _editing && CandidateEdit.WasEdited(Current, prompt, answer);
 
             try
             {
                 await Store.SaveAsync(
                     _ownerId!,
-                    Current.Prompt,
-                    Current.Answer,
+                    prompt,
+                    answer,
                     CardOrigin.Generated,
-                    edited: false,
+                    edited,
                     CancellationToken.None);
             }
             catch (Exception)
             {
                 // Never advance and never move to Failed: the card was not saved, and Failed would
-                // re-render a passage that is gone by design. The candidate stays put so a retry
-                // re-issues the same save rather than queueing a second one.
+                // re-render a passage that is gone by design. Edit mode and the buffer stay put too,
+                // so a retry re-issues the same save rather than queueing a second one.
                 _saveError = "That card could not be saved just now. Nothing was lost — try again.";
                 return;
             }
 
-            _saved++;
+            _session!.Accept(edited);
             await AdvanceAsync();
         }
         finally
@@ -236,6 +253,13 @@ public partial class Generate : IAsyncDisposable
             _busy = false;
         }
     }
+
+    private static string EditRefusalReason(string prompt, string answer) =>
+        string.IsNullOrWhiteSpace(prompt) ? "The prompt cannot be empty."
+        : string.IsNullOrWhiteSpace(answer) ? "The answer cannot be empty."
+        : prompt.Length > CardBounds.MaxPromptCharacters
+            ? $"That prompt is {prompt.Length:N0} characters. The limit is {CardBounds.MaxPromptCharacters:N0}."
+            : $"That answer is {answer.Length:N0} characters. The limit is {CardBounds.MaxAnswerCharacters:N0}.";
 
     private async Task RejectAsync()
     {
@@ -247,7 +271,7 @@ public partial class Generate : IAsyncDisposable
         try
         {
             _saveError = null;
-            _discarded++;
+            _session!.Reject();
             await AdvanceAsync();
         }
         finally
@@ -256,13 +280,32 @@ public partial class Generate : IAsyncDisposable
         }
     }
 
+    private void BeginEdit()
+    {
+        _editPrompt = Current.Prompt;
+        _editAnswer = Current.Answer;
+        _editValidationMessage = null;
+        _editing = true;
+    }
+
+    /// <summary>The candidate was never touched, so leaving edit mode restores it by itself.</summary>
+    private void CancelEdit() => ClearEdit();
+
+    private void ClearEdit()
+    {
+        _editing = false;
+        _editPrompt = string.Empty;
+        _editAnswer = string.Empty;
+        _editValidationMessage = null;
+    }
+
     /// <summary>
     /// Claims the triage lock, or refuses when one is already in flight or the batch has emptied.
     /// The count check is what stops a late handler indexing past the end of the list.
     /// </summary>
     private bool TryBeginTriage()
     {
-        if (_busy || _stage is not Stage.Triaging || _pending.Count == 0)
+        if (_busy || _stage is not Stage.Triaging || _session is null || _session.IsComplete)
         {
             return false;
         }
@@ -273,14 +316,13 @@ public partial class Generate : IAsyncDisposable
 
     private async Task AdvanceAsync()
     {
-        _pending.RemoveAt(0);
-        _triagedCount++;
+        // Cleared BEFORE the interop await, alongside the stage. Blazor renders at an event
+        // handler's first yielding await, so an edit mode left pointing at a departed candidate
+        // renders through Current and throws.
+        ClearEdit();
 
-        if (_pending.Count == 0)
+        if (_session!.IsComplete)
         {
-            // The stage moves BEFORE the interop await. Blazor renders at an event handler's first
-            // yielding await, and on the reject path that await is the JS call — so leaving the
-            // stage on Triaging here renders an empty list through Current and throws.
             _stage = Stage.Summary;
             await SetUnloadWarningAsync(false);
         }
@@ -294,6 +336,7 @@ public partial class Generate : IAsyncDisposable
         _saveError = null;
         _passage = string.Empty;
         _focusHint = string.Empty;
+        ClearEdit();
     }
 
     private void StartElapsedTimer()

@@ -16,8 +16,7 @@ public static class CandidateBounds
 
         foreach (var candidate in candidates)
         {
-            if (candidate.Prompt.Length <= CardBounds.MaxPromptCharacters
-                && candidate.Answer.Length <= CardBounds.MaxAnswerCharacters)
+            if (IsWithinColumnLimits(candidate.Prompt, candidate.Answer))
             {
                 kept.Add(candidate);
             }
@@ -25,4 +24,10 @@ public static class CandidateBounds
 
         return kept;
     }
+
+    /// <summary>The same gate for one candidate, so the edit path cannot disagree with the
+    /// generated path about what fits.</summary>
+    public static bool IsWithinColumnLimits(string prompt, string answer) =>
+        prompt.Length <= CardBounds.MaxPromptCharacters
+        && answer.Length <= CardBounds.MaxAnswerCharacters;
 }

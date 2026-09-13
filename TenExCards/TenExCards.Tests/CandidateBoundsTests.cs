@@ -57,6 +57,19 @@ public class CandidateBoundsTests(TenExCardsWebApplicationFactory factory)
         kept.Should().NotContain(c => c.Prompt.Length == CardBounds.MaxPromptCharacters);
     }
 
+    [Theory]
+    [InlineData(500, 1_000, true)]
+    [InlineData(501, 1_000, false)]
+    [InlineData(500, 1_001, false)]
+    [InlineData(0, 0, true)]
+    public void IsWithinColumnLimits_AtTheBoundaryInBothDirections(int promptLength, int answerLength, bool expected)
+    {
+        var within = CandidateBounds.IsWithinColumnLimits(
+            new string('p', promptLength), new string('a', answerLength));
+
+        within.Should().Be(expected);
+    }
+
     [Fact]
     public void CardBounds_MatchTheWidthsTheMigrationWrote()
     {
