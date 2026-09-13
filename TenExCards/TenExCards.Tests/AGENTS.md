@@ -130,8 +130,18 @@ one failure in CI, deploy stopped at `Test`.
 - Any test constructing `new WebApplicationFactory<Program>()` directly must set **every** guarded
   setting: `ConnectionStrings:DefaultConnection`, `Testing:SkipStartupMigration` where the migration
   must be skipped, and `Gemini:ApiKey`. Adding a guard to `Program.cs` means visiting all of them.
-  There are currently two such bare factories; `grep -rn "new WebApplicationFactory<Program>"` finds
-  them.
+  There are currently three such bare factories; `grep -rn "new WebApplicationFactory<Program>"`
+  finds them. `BootPathGuardTests` is the one that asserts the guards themselves, and it sidesteps
+  this trap by building its hosts as **Production**, where user-secrets are not loaded at all — an
+  omitted setting is then genuinely omitted, locally and in CI alike.
+
+  **That host is never given `DataProtection:KeyIdentifier`.** Measured 2026-09-14: supplying it
+  makes the host construct `DefaultAzureCredential`, reach `kv-tenexcards-plc` and fail
+  `keys/wrap/action` with `ForbiddenByRbac`, using the operator's own `az` session — while boot and
+  `GET /` both still succeed, so nothing about the response reports it. The encryptor itself stays
+  with the manual `Xml`-column verification in `TenExCards/AGENTS.md`; the test asserts only that
+  the guard fires when the setting is absent, with the same absence under Development as its
+  control.
 - Before pushing anything that touches `Program.cs`'s configuration, run the suite the way CI sees
   it — with the secret store moved aside:
 

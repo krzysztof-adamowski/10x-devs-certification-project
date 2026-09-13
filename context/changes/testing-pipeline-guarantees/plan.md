@@ -698,30 +698,30 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 1.1 The suite passes
-- [x] 1.2 The new file's tests are present in the run and green
-- [x] 1.3 The solution still builds
+- [x] 1.1 The suite passes — 88ddfe5
+- [x] 1.2 The new file's tests are present in the run and green — 88ddfe5
+- [x] 1.3 The solution still builds — 88ddfe5
 
 #### Manual
 
-- [x] 1.4 Render-mode builder marked anonymous ⇒ test fails naming the moved patterns; reverted
-- [x] 1.5 `MapStaticAssets().AllowAnonymous()` removed ⇒ asset assertion fails; reverted
-- [x] 1.6 Asset-count control fires when the metadata predicate is broken
+- [x] 1.4 Render-mode builder marked anonymous ⇒ test fails naming the moved patterns; reverted — 88ddfe5
+- [x] 1.5 `MapStaticAssets().AllowAnonymous()` removed ⇒ asset assertion fails; reverted — 88ddfe5
+- [x] 1.6 Asset-count control fires when the metadata predicate is broken — 88ddfe5
 
 ### Phase 2: Boot-path guards under a Production-shaped host
 
 #### Automated
 
-- [ ] 2.1 The suite passes
-- [ ] 2.2 Bare-factory count matches what `TenExCards.Tests/AGENTS.md` claims
-- [ ] 2.3 No test run opens a connection to `vault.azure.net`
+- [x] 2.1 The suite passes
+- [x] 2.2 Bare-factory count matches what `TenExCards.Tests/AGENTS.md` claims
+- [x] 2.3 No test run opens a connection to `vault.azure.net`
 
 #### Manual
 
-- [ ] 2.4 Suite green with the user-secrets store moved aside
-- [ ] 2.5 D6 control throws when its environment is flipped to Production; reverted
-- [ ] 2.6 Each guard assertion pins its own cause, not another guard's throw
-- [ ] 2.7 No Key Vault traffic observed during the run
+- [x] 2.4 Suite green with the user-secrets store moved aside
+- [x] 2.5 D6 control throws when its environment is flipped to Production; reverted
+- [x] 2.6 Each guard assertion pins its own cause, not another guard's throw
+- [x] 2.7 No Key Vault traffic observed during the run
 
 ### Phase 3: The deploy gate gets a second oracle
 
