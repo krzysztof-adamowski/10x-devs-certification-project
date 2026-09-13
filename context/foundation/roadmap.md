@@ -66,7 +66,7 @@ reason to exist.
 | S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | done |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | done |
 | S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | done |
-| S-06 | `outcome-recording`      | determine the acceptance, AI-origin, and edit rates              | S-03, S-04, S-05 | FR-013, Success Criteria                                | in-progress |
+| S-06 | `outcome-recording`      | determine the acceptance, AI-origin, and edit rates              | S-03, S-04, S-05 | FR-013, Success Criteria                                | done |
 
 ## Streams
 
@@ -400,7 +400,7 @@ rather than reopening them.
   is no operator or admin view. And recording a rejection must not retain content derived from the
   passage the product promised to discard — the same argument that removed resumable triage from
   scope applies here.
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 

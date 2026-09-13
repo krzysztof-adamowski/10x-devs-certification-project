@@ -1,7 +1,7 @@
 ---
 change_id: outcome-recording
 title: Triage outcomes and card origin are recorded
-status: impl_reviewed
+status: implemented
 created: 2026-09-13
 updated: 2026-09-14
 archived_at: null
