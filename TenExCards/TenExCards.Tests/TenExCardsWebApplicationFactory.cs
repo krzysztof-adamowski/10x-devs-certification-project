@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TenExCards.Data;
+using TenExCards.Generation;
 
 namespace TenExCards.Tests;
 
@@ -28,6 +30,10 @@ public class TenExCardsWebApplicationFactory : WebApplicationFactory<Program>
 
         // The only way to stop the boot-path migration — see Program.cs's comment on this flag.
         builder.UseSetting("Testing:SkipStartupMigration", "true");
+
+        // Same trap as the connection string: the Gemini:ApiKey guard throws before
+        // ConfigureServices can replace anything. Nothing reads the value.
+        builder.UseSetting("Gemini:ApiKey", "test-key-not-a-real-credential");
 
         // Belt-and-braces, confirmed by measurement rather than assumed (see
         // IdentityConfigurationTests.WebApplicationFactory_defaults_to_Development_on_its_own):
@@ -65,6 +71,10 @@ public class TenExCardsWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseInMemoryDatabase(_databaseName));
             services.AddScoped(sp =>
                 sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+
+            // Replaced here rather than per-test, so no factory-booted test can reach the network.
+            services.RemoveAll<ICardCandidateGenerator>();
+            services.AddSingleton<ICardCandidateGenerator, StubCardCandidateGenerator>();
         });
     }
 }

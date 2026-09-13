@@ -8,6 +8,7 @@ using TenExCards.Cards;
 using TenExCards.Components;
 using TenExCards.Components.Account;
 using TenExCards.Data;
+using TenExCards.Generation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,16 +43,35 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
-// The only type allowed to query the Cards table; every member takes the owner id, so the account
-// boundary cannot be forgotten at a call site. It resolves the FACTORY above rather than the scoped
-// context shim and creates one context per call — in Blazor Server a DI scope is the circuit, so a
-// scoped context injected into a component would live for the learner's whole session. See the
-// remarks on CardStore itself. The registration stays scoped so that later members may depend on
-// scoped services; nothing about the store's own state requires it.
 builder.Services.AddScoped<ICardStore, CardStore>();
 
 // EnableRetryOnFailure above is not optional: Azure SQL produces transient faults, and a retry the
 // application does not make becomes a user-visible failure against a 2s acknowledgement budget.
+
+builder.Services.Configure<GenerationOptions>(
+    builder.Configuration.GetSection(GenerationOptions.SectionName));
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+// Unconditional, unlike the key-identifier guard below: a development machine does need a real API
+// key to generate anything. Read eagerly so the throw names the setting at boot.
+_ = builder.Configuration["Gemini:ApiKey"]
+    ?? throw new InvalidOperationException(
+        "Gemini:ApiKey is not configured. Locally it comes from user-secrets; deployed it arrives "
+        + "as the app setting Gemini__ApiKey resolving the gemini-api-key Key Vault reference, "
+        + "which must be set and Resolved BEFORE the build that reads it is merged.");
+
+// Eager, because the generator is a singleton and would otherwise fail at the first submission
+// rather than at boot.
+if (builder.Configuration.GetSection("Gemini:Models").Get<string[]>() is not { Length: > 0 })
+{
+    throw new InvalidOperationException(
+        "Gemini:Models is empty. It is the ordered model rotation, best quality first; each entry "
+        + "has its own free-tier daily quota and the generator falls through on HTTP 429.");
+}
+
+// Singleton: it holds a thread-safe OpenAIClient and keeps no per-request state.
+builder.Services.AddSingleton<ICardCandidateGenerator, GeminiCardCandidateGenerator>();
 
 // The cookie scheme is the default; there is no external login, so no DefaultSignInScheme override
 // is needed for it. AddIdentityCookies() registers the handler LoginPath below configures.

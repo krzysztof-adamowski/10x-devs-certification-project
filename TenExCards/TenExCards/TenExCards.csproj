@@ -38,6 +38,16 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+
+    <!-- THE PACKAGE IS `OpenAI`; THE PROVIDER IS GEMINI — do not delete this as a mistaken
+         dependency, and do not conclude from it that this app talks to OpenAI. Google serves an
+         OpenAI-compatible endpoint, and this client accepts a custom base URL via
+         OpenAIClientOptions.Endpoint, which is what lets a typed .NET client reach
+         generativelanguage.googleapis.com. Model and endpoint are configuration (see the `Gemini`
+         section of appsettings.json), so swapping providers is a setting change, not a rewrite.
+         NOT part of the shared framework, so it does not version with the 10.0.x pins above — do
+         not "align" it with them. 2.13.0 confirmed with `dotnet package search` on 2026-09-12. -->
+    <PackageReference Include="OpenAI" Version="2.13.0" />
   </ItemGroup>
 
 </Project>

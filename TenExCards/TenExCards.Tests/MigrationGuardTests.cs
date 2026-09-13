@@ -26,6 +26,11 @@ public class MigrationGuardTests
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=unused;Database=unused;");
+
+            // Without this, the Gemini:ApiKey guard throws the same type earlier and the assertion
+            // below passes while proving nothing about migrations.
+            builder.UseSetting("Gemini:ApiKey", "test-key-not-a-real-credential");
+
             // Testing:SkipStartupMigration is deliberately NOT set here.
 
             builder.ConfigureServices(services =>
@@ -49,6 +54,10 @@ public class MigrationGuardTests
 
         var act = () => _ = factory.Services;
 
-        act.Should().Throw<InvalidOperationException>();
+        // Message, not just type: two guards now throw InvalidOperationException here. String
+        // observed from EF on 2026-09-13, not copied from docs.
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Relational-specific methods can only be used*",
+                "the migration block must be what threw, not the Gemini:ApiKey guard");
     }
 }

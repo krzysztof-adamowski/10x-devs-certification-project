@@ -1064,16 +1064,16 @@ this phase is sequenced first.
 
 #### Automated
 
-- [ ] 2.1 Solution builds
-- [ ] 2.2 Tests pass
-- [ ] 2.3 No secret reaches a tracked file
-- [ ] 2.4 App boots locally against `sqldb-tenexcards-dev` with `Gemini:ApiKey` in user-secrets
+- [x] 2.1 Solution builds
+- [x] 2.2 Tests pass
+- [x] 2.3 No secret reaches a tracked file
+- [x] 2.4 App boots locally against `sqldb-tenexcards-dev` with `Gemini:ApiKey` in user-secrets
 
 #### Manual
 
-- [ ] 2.5 `gemini-api-key` in the vault and `Gemini__ApiKey` reporting `Resolved`, before the merge
-- [ ] 2.6 Streaming + JSON-schema structured output established by a throwaway call and recorded
-- [ ] 2.7 A hand-run generation returns cards that read as reformulated, not copied
+- [x] 2.5 `gemini-api-key` in the vault and `Gemini__ApiKey` reporting `Resolved`, before the merge
+- [x] 2.6 Streaming + JSON-schema structured output established by a throwaway call and recorded
+- [x] 2.7 A hand-run generation returns cards that read as reformulated, not copied
 
 ### Phase 3: Paste, generate, triage
 
