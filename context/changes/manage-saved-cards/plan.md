@@ -590,16 +590,16 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Automated
 
-- [x] 1.1 Solution builds
-- [x] 1.2 Tests pass
-- [x] 1.3 Suite passes with the secret store moved aside, the way CI sees it
-- [x] 1.4 No `GenerationOptions` reference to the moved limits, and no dead `Generation:` key survives
-- [x] 1.5 Each cross-account test observed failing with its `OwnerId` filter removed
+- [x] 1.1 Solution builds — 24268a4
+- [x] 1.2 Tests pass — 24268a4
+- [x] 1.3 Suite passes with the secret store moved aside, the way CI sees it — 24268a4
+- [x] 1.4 No `GenerationOptions` reference to the moved limits, and no dead `Generation:` key survives — 24268a4
+- [x] 1.5 Each cross-account test observed failing with its `OwnerId` filter removed — 24268a4
 
 #### Manual
 
 - [ ] 1.6 Generation and triage still work unchanged against `sqldb-tenexcards-dev`
-- [x] 1.7 No migration file exists and nothing is pending
+- [x] 1.7 No migration file exists and nothing is pending — 24268a4
 
 ### Phase 2: The `/cards` page
 
