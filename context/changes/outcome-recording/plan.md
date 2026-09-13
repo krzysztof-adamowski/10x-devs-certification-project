@@ -724,8 +724,8 @@ captured at the time and recorded in the runbook.
 #### Manual
 
 - [x] 4.4 Fresh `Application started` line timestamped after the deploy
-- [ ] 4.5 A live triaged batch produces exactly one matching `TriageBatches` row
-- [ ] 4.6 Three rates read from `sqldb-tenexcards` and recorded here with the date
-- [ ] 4.7 Live row carries no text beyond `OwnerId`, with a `Cards` read as the control
-- [ ] 4.8 `TenExCards/AGENTS.md` and `context/foundation/roadmap.md` updated
-- [ ] 4.9 No new `file:line` citation in any edited document — member and section names instead
+- [x] 4.5 A live triaged batch produces exactly one matching `TriageBatches` row
+- [x] 4.6 Three rates read from `sqldb-tenexcards` and recorded here with the date
+- [x] 4.7 Live row carries no text beyond `OwnerId`, with a `Cards` read as the control
+- [x] 4.8 `TenExCards/AGENTS.md` and `context/foundation/roadmap.md` updated
+- [x] 4.9 No new `file:line` citation in any edited document — member and section names instead

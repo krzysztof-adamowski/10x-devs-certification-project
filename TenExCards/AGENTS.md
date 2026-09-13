@@ -155,6 +155,26 @@ inert today — `App.razor` never calls `AcceptsInteractiveRouting()` — but if
 routing is ever adopted, the Identity forms stay statically rendered and this page does not, at
 which point its `HttpContext` cascade is null and the save throws inside a circuit handler.
 
+**Outcome recording is live** as of 2026-09-14 (`S-06`, change `outcome-recording`): `FR-013`'s
+three rates are answerable. Two of them always were — `Card.Origin` and `Card.Edited` — and the one
+that was not is the acceptance rate, because a rejected candidate left no trace anywhere and
+`TriageSession`'s counters die with the circuit. `Generation/ITriageRecorder` writes one row per
+generation batch to `TriageBatches`, carrying counts, the owner and a timestamp and **no text at
+all**; `TriageRecordShapeTests` pins that property set as an exact-set equality, which is what stops
+an eighth column arriving quietly.
+
+**It is best-effort on purpose, and that is a measurement property rather than a defect.** Every
+recorder member swallows its faults and bounds its own wait at two seconds, because measurement must
+never cost a learner a card nor freeze the form — the shared context factory retries for ~30s, so a
+`catch` alone would hide a fault only *after* the learner had already waited for it. The rates
+therefore **undercount under fault**. Read them as floors.
+
+How to read them is `### Reading the outcome rates`; do not restate it here. First reading, taken
+2026-09-14 immediately after the deploy: acceptance `0.600`, AI-origin share `0.657`, edit rate
+`0.333`, from a single batch of five candidates. All three miss their PRD targets and none of them
+means anything yet — `FR-013`'s own Socratic note records that these rates are noise at this volume
+and keeps the requirement anyway, because recording is the precondition for ever answering it.
+
 ### Authorization defaults to protected
 
 `Program.cs` sets an authorization **fallback policy** requiring an authenticated user. A fallback
