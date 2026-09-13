@@ -670,16 +670,16 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [x] 1.1 Solution builds
-- [x] 1.2 Test suite is green
-- [x] 1.3 Test suite is green with user-secrets moved aside (the way CI sees it)
-- [x] 1.4 `TriageRecordShapeTests` fails on an added eighth property, verified and reverted
+- [x] 1.1 Solution builds — 8e0f65b
+- [x] 1.2 Test suite is green — 8e0f65b
+- [x] 1.3 Test suite is green with user-secrets moved aside (the way CI sees it) — 8e0f65b
+- [x] 1.4 `TriageRecordShapeTests` fails on an added eighth property, verified and reverted — 8e0f65b
 
 #### Manual
 
-- [x] 1.5 Generated migration declares exactly one `nvarchar` column (`OwnerId`)
-- [x] 1.6 Migration applies cleanly to `sqldb-tenexcards-dev`
-- [x] 1.7 `TriageBatches` exists in the dev database with the expected columns and `OwnerId` index
+- [x] 1.5 Generated migration declares exactly one `nvarchar` column (`OwnerId`) — 8e0f65b
+- [x] 1.6 Migration applies cleanly to `sqldb-tenexcards-dev` — 8e0f65b
+- [x] 1.7 `TriageBatches` exists in the dev database with the expected columns and `OwnerId` index — 8e0f65b
 - [ ] 1.8 Production startup log names `AddTriageBatches` as the one applied migration, read from a
       fresh `Application started` line
 
@@ -687,10 +687,10 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [ ] 2.1 Solution builds
-- [ ] 2.2 Test suite is green
-- [ ] 2.3 `ITriageRecorder` resolves from the real pipeline
-- [ ] 2.4 No regression in `TriageSessionTests`, `CardOwnershipTests`, `CandidateEditTests`
+- [x] 2.1 Solution builds
+- [x] 2.2 Test suite is green
+- [x] 2.3 `ITriageRecorder` resolves from the real pipeline
+- [x] 2.4 No regression in `TriageSessionTests`, `CardOwnershipTests`, `CandidateEditTests`
 
 #### Manual
 
