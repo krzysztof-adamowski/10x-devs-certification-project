@@ -97,8 +97,31 @@ it. The counters moved out of the component into `Generation/TriageSession.cs`, 
 re-entrancy guard.
 
 What the triage surface deliberately does **not** offer: any way to find, edit or delete a card
-once saved (`S-04`). There is no card list, and
-the completion summary must not link to one.
+once saved. That is `/cards`, below; the completion summary links to it rather than implementing it.
+
+**Managing saved cards is live** as of 2026-09-13 (`S-04`, change `manage-saved-cards`): `/cards`,
+the second `@rendermode InteractiveServer` page, where a learner finds one of their own cards by
+search or recency and repairs or removes it in place. It adds no schema — editing writes `Prompt`
+and `Answer` and touches neither `Origin` nor `Edited`, because both record how a card was
+*created* and `S-06` reads them as such.
+
+**It is a find surface, not a browse surface, and the cap is the whole defence.** `FR-009` was
+rewritten during shaping from "view every card" to "find a card in order to edit or delete it", so
+the page shows at most `Cards:MaxResults` rows (20) with no paging, no sort control and no show-all
+— and says so when the list is capped, since a learner with sixty cards must not read twenty rows
+as their collection. Adding paging would look like an improvement and would reintroduce a Non-Goal.
+
+Two things about the query are deliberate and cheap to break. **Both sides of the search comparison
+are lowered inside the query** rather than leaning on Azure SQL's case-insensitive collation,
+because the EF in-memory provider the tests use is case-*sensitive* — collation-dependent matching
+passes its tests and behaves differently live. And the ordering carries an **`Id` tiebreaker after
+`CreatedAt`**: `CreatedAt` is stamped per save, so two cards from one batch can share it, and an
+unordered tie at the cutoff hides a card at random between one query and the next.
+
+The account boundary lives in `ICardStore`, never above it. `GetForOwnerAsync` answers `null` and
+`UpdateForOwnerAsync`/`DeleteForOwnerAsync` answer `false` for *both* "not yours" and "already
+gone" — deliberately indistinguishable, because separating them leaks that another account's card
+exists. `CardOwnershipTests` asserts each of the four members across the boundary.
 
 ### Authorization defaults to protected
 
@@ -123,7 +146,8 @@ endpoint-routes more than page components — so the rule has a trap in it:
   `IAllowAnonymous` marker anywhere in an endpoint's metadata short-circuits authorization for it —
   so marking that builder anonymous would exempt every future gated page, not just the circuit hub.
   It is unnecessary today because no anonymous page uses `@rendermode InteractiveServer`. Revisit
-  the first time one does.
+  the first time one does. `S-04` added `/cards` as the second interactive page and it is **gated**,
+  so the reasoning is unchanged and the count of `.AllowAnonymous()` calls stays at exactly two.
 - **`MapIdentityLogout()` carries `.AllowAnonymous()`, and it is not an oversight that sign-out is
   reachable to the signed-out.** Posting it twice, or after the cookie has already expired, must
   end at the home page rather than `302` to login — a logout that redirects to a login form reads
@@ -151,6 +175,10 @@ Product:
 - **Never add password recovery.** A forgotten password is a dead account in v1.
 - **Never add roles, sharing, admin views, decks, tags, or export.** The user model is flat;
   scope every query to the owning account.
+- **Never turn the saved-card list into a browse surface.** No paging, no page-size or sort
+  control, no show-all, no card count as a headline. `/cards` exists to *find* a card in order to
+  edit or delete it — `FR-009` was rewritten to say exactly that — so the `Cards:MaxResults` cap
+  and the absence of paging are load-bearing, not placeholders awaiting a better UI.
 - **Never let the form freeze.** Acknowledge a submission within 2s with continuous visible
   progress; generation is bounded at 30s.
 - **Never hold more in a circuit than you must.** Blazor Server memory is per-user — roughly

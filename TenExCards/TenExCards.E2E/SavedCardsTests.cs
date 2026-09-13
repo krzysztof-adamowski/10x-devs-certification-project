@@ -236,6 +236,21 @@ public class SavedCardsTests(AppUnderTest app) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TriageSummary_LinksToTheSavedCards()
+    {
+        // S-02 deliberately left this link out because the surface did not exist yet.
+        var page = await WithThreeSavedCardsAsync();
+
+        // Scoped to the content area: the nav carries a link of the same name, which is correct.
+        var link = page.GetByRole(AriaRole.Article)
+            .GetByRole(AriaRole.Link, new() { Name = "Your cards" });
+        await Assertions.Expect(link).ToBeVisibleAsync();
+
+        await link.ClickAsync();
+        await page.GetByLabel("Search").WaitForAsync(new() { Timeout = 20_000 });
+    }
+
+    [Fact]
     public async Task Learner_WithNoSavedCards_IsToldSoAndPointedAtGenerate()
     {
         var page = await RegisterAsync();

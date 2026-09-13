@@ -89,6 +89,16 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task Home_WhenSignedIn_LinksToTheSavedCards()
+    {
+        using var client = await SignedInClientAsync(cardsToSeed: 0);
+
+        var html = await client.GetStringAsync("/");
+
+        html.Should().Contain("href=\"cards\"", "a signed-in learner reaches their cards from home");
+    }
+
+    [Fact]
     public async Task CardsPage_BelowTheCap_DoesNotClaimToBeCapped()
     {
         using var client = await SignedInClientAsync(cardsToSeed: 2);

@@ -605,33 +605,33 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Automated
 
-- [x] 2.1 Solution builds
-- [x] 2.2 Tests pass
-- [x] 2.3 `AuthBoundaryTests` shows `/cards` answering `302` to the login path
-- [x] 2.4 `AllowAnonymous` still appears on exactly the four known surfaces
+- [x] 2.1 Solution builds — ec856b3
+- [x] 2.2 Tests pass — ec856b3
+- [x] 2.3 `AuthBoundaryTests` shows `/cards` answering `302` to the login path — ec856b3
+- [x] 2.4 `AllowAnonymous` still appears on exactly the four known surfaces — ec856b3
 
 #### Manual
 
-- [x] 2.5 Full local loop: find by answer text, edit, and see the change survive a refresh
-- [x] 2.6 500 characters saves, 501 is refused in place without leaving edit state
-- [x] 2.7 Delete needs the second click; Cancel restores the row; the deletion persists
-- [x] 2.8 At most one row is ever out of view state
+- [x] 2.5 Full local loop: find by answer text, edit, and see the change survive a refresh — ec856b3
+- [x] 2.6 500 characters saves, 501 is refused in place without leaving edit state — ec856b3
+- [x] 2.7 Delete needs the second click; Cancel restores the row; the deletion persists — ec856b3
+- [x] 2.8 At most one row is ever out of view state — ec856b3
 - [ ] 2.9 Rapid typing never settles on an earlier prefix's results
-- [x] 2.10 All three informational states render correctly
-- [x] 2.11 A forced store failure does not produce the generic Blazor error UI
+- [x] 2.10 All three informational states render correctly — ec856b3
+- [x] 2.11 A forced store failure does not produce the generic Blazor error UI — ec856b3
 
 ### Phase 3: Entry points and the repository record
 
 #### Automated
 
-- [ ] 3.1 Solution builds
-- [ ] 3.2 Tests pass
-- [ ] 3.3 The staged diff immediately before the commit contains only this change's paths
+- [x] 3.1 Solution builds
+- [x] 3.2 Tests pass
+- [x] 3.3 The staged diff immediately before the commit contains only this change's paths
 
 #### Manual
 
-- [ ] 3.4 Nav link, Home link and the triage-summary link all reach `/cards`
-- [ ] 3.5 `AGENTS.md` reads correctly; the two-`AllowAnonymous` count is still true; no fact duplicated in `deploy-plan.md`
+- [x] 3.4 Nav link, Home link and the triage-summary link all reach `/cards`
+- [x] 3.5 `AGENTS.md` reads correctly; the two-`AllowAnonymous` count is still true; no fact duplicated in `deploy-plan.md`
 
 ### Phase 4: Deploy and verify on the live instance
 

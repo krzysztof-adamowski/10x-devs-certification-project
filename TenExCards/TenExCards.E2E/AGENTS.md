@@ -47,6 +47,18 @@ dotnet test TenExCards/TenExCards.E2E/TenExCards.E2E.csproj
 Set `E2E_HEADED=1` to watch it run rather than guess what it did, and `E2E_VIDEO_DIR=<path>` to
 record it — a `.webm` per test — when nobody can sit and watch at the moment it runs.
 
+**One application for the whole suite, and the port is why.** `AppUnderTest` binds a **fixed** port,
+and xUnit runs separate collections in parallel — so a per-class fixture meant two processes racing
+for one port the moment `S-04` added a second test class. `AppCollection` shares the fixture and
+serialises the classes; every test class must carry `[Collection(AppCollection.Name)]` rather than
+`IClassFixture<AppUnderTest>`. Before this, one test failed intermittently in the full run while
+passing in isolation.
+
+**It refuses to start if something is already serving that port**, and that refusal is the point.
+`WaitUntilServingAsync` accepts whatever answers, so a leftover process from an earlier run made the
+whole suite drive an **old build** — measured 2026-09-13 as six failures against correct code,
+followed by a pass that proved nothing. A wrong-build run must never look like a result.
+
 `AppUnderTest` spawns the application itself on `http://127.0.0.1:5199` and kills the process tree
 afterwards. It sets four environment variables and **`ASPNETCORE_ENVIRONMENT=Development` is not
 optional**: `--no-launch-profile` alone defaults to Production, where the Key Vault guard runs and
