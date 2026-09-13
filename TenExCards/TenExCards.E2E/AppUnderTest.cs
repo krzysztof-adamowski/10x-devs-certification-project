@@ -18,6 +18,8 @@ public sealed class AppUnderTest : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        await RefuseIfAlreadyServingAsync();
+
         var repoRoot = FindRepoRoot();
 
         var startInfo = new ProcessStartInfo("dotnet")
@@ -74,6 +76,34 @@ public sealed class AppUnderTest : IAsyncLifetime
                 return _output.ToString();
             }
         }
+    }
+
+    /// <summary>
+    /// BaseUrl is a fixed port, and WaitUntilServingAsync below accepts whatever answers it. A
+    /// leftover process from an earlier run therefore makes the whole suite drive an OLD build:
+    /// observed 2026-09-13 as six failures against correct code, then a pass that proved nothing.
+    /// Refuse loudly instead — a wrong-build run must never look like a result.
+    /// </summary>
+    private static async Task RefuseIfAlreadyServingAsync()
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+
+        try
+        {
+            await client.GetAsync(BaseUrl);
+        }
+        catch (HttpRequestException)
+        {
+            return;
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Something is already serving {BaseUrl}. This suite would drive that process instead of "
+            + "the build under test. Stop it and re-run.");
     }
 
     private async Task WaitUntilServingAsync()

@@ -1,0 +1,127 @@
+@page "/cards"
+@rendermode InteractiveServer
+@using TenExCards.Data
+
+<PageTitle>Your cards</PageTitle>
+
+<h1>Your cards</h1>
+
+<p>
+    Find a card to correct or remove it. Search matches the prompt and the answer.
+</p>
+
+<div class="mb-3">
+    <label for="search" class="form-label">Search</label>
+    <input id="search" class="form-control" autocomplete="off"
+           placeholder="a word you remember"
+           @bind="_term" @bind:event="oninput" @bind:after="SearchAsync" />
+</div>
+
+@if (_statusMessage is not null)
+{
+    <div class="alert alert-info" role="alert">@_statusMessage</div>
+}
+
+@if (_loadError is not null)
+{
+    <div class="alert alert-danger" role="alert">@_loadError</div>
+}
+
+@if (_results.Count == 0)
+{
+    @if (_loading)
+    {
+        <p class="text-muted">Looking…</p>
+    }
+    else if (Searching)
+    {
+        <p>
+            Nothing matches “@_term.Trim()”. Clear the box to see your most recent cards.
+        </p>
+    }
+    else
+    {
+        <p>
+            You have no saved cards yet.
+            <a href="generate">Generate some from a passage</a>.
+        </p>
+    }
+}
+else
+{
+    @foreach (var card in _results)
+    {
+        <div class="card mb-3" @key="card.Id">
+            <div class="card-body">
+                @if (_editingId == card.Id)
+                {
+                    @if (_editMessage is not null)
+                    {
+                        <div class="alert alert-danger" role="alert">@_editMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="edit-prompt" class="form-label">Prompt</label>
+                        <textarea id="edit-prompt" class="form-control" rows="3"
+                                  @bind="_editPrompt" @bind:event="oninput"></textarea>
+                        <div class="form-text @(EditPromptOverLimit ? "text-danger" : null)">
+                            @_editPrompt.Length.ToString("N0") / @CardBounds.MaxPromptCharacters.ToString("N0") characters
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit-answer" class="form-label">Answer</label>
+                        <textarea id="edit-answer" class="form-control" rows="5"
+                                  @bind="_editAnswer" @bind:event="oninput"></textarea>
+                        <div class="form-text @(EditAnswerOverLimit ? "text-danger" : null)">
+                            @_editAnswer.Length.ToString("N0") / @CardBounds.MaxAnswerCharacters.ToString("N0") characters
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" style="min-width: 8rem"
+                                disabled="@_busy" @onclick="SaveEditAsync">Save</button>
+                        <button class="btn btn-outline-secondary" style="min-width: 8rem"
+                                disabled="@_busy" @onclick="CancelEdit">Cancel</button>
+                    </div>
+                }
+                else
+                {
+                    <h2 class="card-title h5">@card.Prompt</h2>
+                    <p class="card-text">@card.Answer</p>
+
+                    @if (_confirmingDeleteId == card.Id)
+                    {
+                        <p class="text-danger mb-2">
+                            This cannot be undone. There is no way to bring the card back.
+                        </p>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-danger" style="min-width: 8rem"
+                                    disabled="@_busy" @onclick="() => ConfirmDeleteAsync(card.Id)">
+                                Delete permanently
+                            </button>
+                            <button class="btn btn-outline-secondary" style="min-width: 8rem"
+                                    disabled="@_busy" @onclick="CancelDelete">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" style="min-width: 8rem"
+                                    disabled="@_busy" @onclick="() => BeginEdit(card)">Edit</button>
+                            <button class="btn btn-primary" style="min-width: 8rem"
+                                    disabled="@_busy" @onclick="() => BeginDelete(card.Id)">Delete</button>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    @if (!Searching && _results.Count == Options.MaxResults)
+    {
+        <p class="text-muted">
+            These are your @Options.MaxResults most recent cards. Search to reach the rest.
+        </p>
+    }
+}

@@ -90,6 +90,18 @@ public class AuthBoundaryTests(TenExCardsWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task CardsRoute_Unauthenticated_RedirectsToLoginNever401()
+    {
+        using var client = CreateNoRedirectClient();
+
+        var response = await client.GetAsync("/cards");
+
+        // Same contract as /generate: verify_deploy.py treats 401 as a hard failure.
+        response.StatusCode.Should().Be(HttpStatusCode.Found);
+        response.Headers.Location!.PathAndQuery.Should().StartWith("/Account/Login");
+    }
+
+    [Fact]
     public async Task AccountLifecycle_RegisterThenSignOut_GatedAccessFollowsSessionState()
     {
         var email = UniqueEmail();

@@ -605,20 +605,20 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Automated
 
-- [ ] 2.1 Solution builds
-- [ ] 2.2 Tests pass
-- [ ] 2.3 `AuthBoundaryTests` shows `/cards` answering `302` to the login path
-- [ ] 2.4 `AllowAnonymous` still appears on exactly the four known surfaces
+- [x] 2.1 Solution builds
+- [x] 2.2 Tests pass
+- [x] 2.3 `AuthBoundaryTests` shows `/cards` answering `302` to the login path
+- [x] 2.4 `AllowAnonymous` still appears on exactly the four known surfaces
 
 #### Manual
 
-- [ ] 2.5 Full local loop: find by answer text, edit, and see the change survive a refresh
-- [ ] 2.6 500 characters saves, 501 is refused in place without leaving edit state
-- [ ] 2.7 Delete needs the second click; Cancel restores the row; the deletion persists
-- [ ] 2.8 At most one row is ever out of view state
+- [x] 2.5 Full local loop: find by answer text, edit, and see the change survive a refresh
+- [x] 2.6 500 characters saves, 501 is refused in place without leaving edit state
+- [x] 2.7 Delete needs the second click; Cancel restores the row; the deletion persists
+- [x] 2.8 At most one row is ever out of view state
 - [ ] 2.9 Rapid typing never settles on an earlier prefix's results
-- [ ] 2.10 All three informational states render correctly
-- [ ] 2.11 A forced store failure does not produce the generic Blazor error UI
+- [x] 2.10 All three informational states render correctly
+- [x] 2.11 A forced store failure does not produce the generic Blazor error UI
 
 ### Phase 3: Entry points and the repository record
 

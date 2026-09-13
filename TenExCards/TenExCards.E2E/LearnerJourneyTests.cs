@@ -8,7 +8,8 @@ namespace TenExCards.E2E;
 /// accessible name and label rather than CSS class, so restyling does not break the suite and the
 /// assertions double as an accessibility check.
 /// </summary>
-public class LearnerJourneyTests(AppUnderTest app) : IClassFixture<AppUnderTest>, IAsyncLifetime
+[Collection(AppCollection.Name)]
+public class LearnerJourneyTests(AppUnderTest app) : IAsyncLifetime
 {
     private const string FirstPrompt = "Scripted candidate one: what is discarded first?";
     private const string SecondPrompt = "Scripted candidate two: what does the learner reword?";
