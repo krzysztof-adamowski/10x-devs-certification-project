@@ -37,37 +37,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     /// </summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
-    /// <summary>
-    /// The product's cards (S-02). Query this through <c>TenExCards.Cards.ICardStore</c> rather
-    /// than directly: the account filter is a property of that type, not a discipline every caller
-    /// has to remember.
-    /// </summary>
+    /// <summary>Query through <c>ICardStore</c>, which owns the account filter.</summary>
     public DbSet<Card> Cards => Set<Card>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
-        // FIRST — Identity's own configuration depends on it.
         base.OnModelCreating(builder);
 
         builder.Entity<Card>(card =>
         {
-            // THESE TWO LENGTHS ARE LOAD-BEARING IN TWO PLACES, so neither is free to change alone.
-            // They bound the circuit's memory budget (a full untriaged batch is held in Blazor
-            // Server memory until triage ends), and S-02's generator enforces them on the model's
-            // output before SaveAsync — nothing else stands between a generated candidate and this
-            // table, and a truncation error here throws inside a circuit event handler, losing the
-            // whole untriaged batch behind the generic Blazor error UI. The EF in-memory provider
-            // does NOT enforce HasMaxLength, so no factory-booted test can catch a drift; the
-            // generator's own limits are asserted equal to these values instead.
+            // Mirrored by Generation:MaxPromptCharacters/MaxAnswerCharacters and asserted equal in
+            // CandidateBoundsTests — the in-memory provider ignores HasMaxLength, so nothing else
+            // would catch a drift, and a larger configured value is a truncation error mid-triage.
             card.Property(c => c.Prompt).IsRequired().HasMaxLength(500);
             card.Property(c => c.Answer).IsRequired().HasMaxLength(1000);
 
             card.Property(c => c.OwnerId).IsRequired();
             card.HasIndex(c => c.OwnerId);
 
-            // No navigation property on ApplicationUser: that type is deliberately empty, and the
-            // relationship needs no collection to exist. Cascade delete means deleting an account
-            // takes its cards with it rather than leaving orphan rows pointing at a missing owner.
+            // No navigation on ApplicationUser, which stays empty.
             card.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(c => c.OwnerId)

@@ -7,17 +7,7 @@ using TenExCards.Data;
 
 namespace TenExCards.Tests;
 
-/// <summary>
-/// The account boundary around the product's first entity. <c>TenExCards.Tests/AGENTS.md</c> calls
-/// this "the invariant this project exists to protect" and requires every persisting slice from
-/// <c>S-02</c> onward to assert its own queries sit behind it — this file is S-02's share.
-/// </summary>
-/// <remarks>
-/// These run against the factory's in-memory database, which does NOT enforce foreign keys or
-/// <c>HasMaxLength</c>. Real users are still created through <see cref="UserManager{TUser}"/> so the
-/// owner ids are the same shape the application will actually pass; the assertions below are about
-/// <see cref="ICardStore"/>'s filtering, not about the provider's constraints.
-/// </remarks>
+/// <summary>The account boundary around <c>Card</c>.</summary>
 public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
     : IClassFixture<TenExCardsWebApplicationFactory>
 {
@@ -27,9 +17,8 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        // ONE address for both fields. The unique UserNameIndex behind UserName is the only
-        // database-level guard on email uniqueness (EmailIndex is non-unique), so a helper that
-        // lets the two drift is not the shape the application actually registers.
+        // One address for both: the unique UserNameIndex is the only database-level guard on
+        // email uniqueness.
         var email = $"owner-{Guid.NewGuid():N}@example.com";
         var user = new ApplicationUser { UserName = email, Email = email };
         var result = await userManager.CreateAsync(user, ValidPassword);
@@ -37,12 +26,6 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
         return user.Id;
     }
 
-    /// <summary>
-    /// A fresh scope per call. <see cref="CardStore"/> creates and disposes its own context per
-    /// member, so this is belt-and-braces rather than load-bearing — it keeps the test honest if
-    /// the store ever goes back to holding one, by never letting a change tracker answer a read
-    /// the database never saw.
-    /// </summary>
     private async Task<T> WithStoreAsync<T>(Func<ICardStore, Task<T>> work)
     {
         using var scope = factory.Services.CreateScope();
@@ -104,8 +87,6 @@ public class CardOwnershipTests(TenExCardsWebApplicationFactory factory)
         saved.CreatedAt.Should().NotBe(default);
         saved.CreatedAt.Should().BeOnOrAfter(before);
 
-        // Read it back through a different scope's context, so the assertion is about what was
-        // written rather than about the change tracker that wrote it.
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var stored = await db.Cards.SingleAsync(c => c.Id == saved.Id, CancellationToken.None);
