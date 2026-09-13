@@ -63,9 +63,9 @@ reason to exist.
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | done |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | in-progress |
-| S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | planning |
+| S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | done |
 | S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | planning |
-| S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | proposed |
+| S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | planning |
 | S-06 | `outcome-recording`      | determine the acceptance, AI-origin, and edit rates              | S-03, S-04, S-05 | FR-013, Success Criteria                                | proposed |
 
 ## Streams
@@ -325,7 +325,18 @@ rather than reopening them.
   a `@rendermode InteractiveServer` component cannot be driven by the HTTP harness — does not reach
   it and is not a reason to defer it again. **This entry is the only durable record of the move**:
   `S-02`'s plan is archived with its change.
-- **Status:** planning
+- **Status:** done
+- **Landed 2026-09-13:** triage offers three actions at equal prominence, and the edit swaps the
+  card body for two bounded, counted fields in place. `Card.Edited` records whether the learner
+  reworded an accepted card — captured here because acceptance is the **only** moment it is
+  observable, so it is the signal `S-06` will read rather than derive. The counters moved into
+  `Generation/TriageSession.cs`, which finally makes "each candidate is triaged exactly once"
+  assertable; `S-02`'s review had closed a re-entrancy hole against that invariant but left the
+  guard unasserted. The inherited learner-perspective test landed as `TenExCards.E2E` on
+  **Playwright**, driving a locally started app against a scripted generator — the Gemini free tier
+  caps requests per model per day and returns non-deterministic prose, so it could not supply one.
+  It runs in CI **non-gating** (`continue-on-error: true`), the only such step in the workflow;
+  revisit once it has a track record.
 
 ### S-04: Learner finds a saved card in order to edit or delete it
 
@@ -356,7 +367,7 @@ rather than reopening them.
   so it completes the model rather than serving as a primary path — and the PRD's target that three
   quarters of a learner's cards come from generation is only meaningful because this path exists to
   be the minority.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-06: Triage outcomes and card origin are recorded
 
