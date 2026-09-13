@@ -1097,30 +1097,30 @@ this phase is sequenced first.
 
 #### Automated
 
-- [x] 4.1 `main` workflow run green across the full step list
-- [x] 4.2 `scripts/verify_deploy.py` passes in that run
+- [x] 4.1 `main` workflow run green across the full step list — 9f33a78
+- [x] 4.2 `scripts/verify_deploy.py` passes in that run — 9f33a78
 
 #### Manual
 
-- [x] 4.3 Live assets answer `text/css` / a JavaScript type, not `text/html`
-- [x] 4.4 Anonymous `/generate` on the live site returns `302`, not `401`
-- [x] 4.5 Acknowledgement under 2 seconds on the deployed circuit at maximum length
-- [x] 4.6 Generation ceiling measured and recorded; timeout raised and flagged only if it was missed
-- [x] 4.7 A card accepted live survives a refresh, confirmed by query against `sqldb-tenexcards`
-- [x] 4.8 No passage text in the deployed schema or the App Service log stream
-- [x] 4.9 A live generation failure reports itself and leaves the passage recoverable
+- [x] 4.3 Live assets answer `text/css` / a JavaScript type, not `text/html` — 9f33a78
+- [x] 4.4 Anonymous `/generate` on the live site returns `302`, not `401` — 9f33a78
+- [x] 4.5 Acknowledgement under 2 seconds on the deployed circuit at maximum length — 9f33a78
+- [x] 4.6 Generation ceiling measured and recorded; timeout raised and flagged only if it was missed — 9f33a78
+- [x] 4.7 A card accepted live survives a refresh, confirmed by query against `sqldb-tenexcards` — 9f33a78
+- [x] 4.8 No passage text in the deployed schema or the App Service log stream — 9f33a78
+- [x] 4.9 A live generation failure reports itself and leaves the passage recoverable — 9f33a78
 
 ### Phase 5: Update the repository record
 
 #### Automated
 
-- [ ] 5.1 Solution builds and tests pass
-- [ ] 5.2 `AGENTS.md` no longer says an LLM client is missing
-- [ ] 5.3 `Home.razor` no longer says the flow arrives in later slices
+- [x] 5.1 Solution builds and tests pass
+- [x] 5.2 `AGENTS.md` no longer says an LLM client is missing
+- [x] 5.3 `Home.razor` no longer says the flow arrives in later slices
 
 #### Manual
 
-- [ ] 5.4 `AGENTS.md` reads correctly end to end; secret count and app-setting list match reality
-- [ ] 5.5 Roadmap `S-02`, Open Roadmap Question 2 and `deploy-plan.md` tell the same story
-- [ ] 5.6 Every fact lives in exactly one of `AGENTS.md` or `deploy-plan.md`, never both
-- [ ] 5.7 The roadmap moves the learner-perspective test to `S-03` and `S-02` no longer claims it
+- [x] 5.4 `AGENTS.md` reads correctly end to end; secret count and app-setting list match reality
+- [x] 5.5 Roadmap `S-02`, Open Roadmap Question 2 and `deploy-plan.md` tell the same story
+- [x] 5.6 Every fact lives in exactly one of `AGENTS.md` or `deploy-plan.md`, never both
+- [x] 5.7 The roadmap moves the learner-perspective test to `S-03` and `S-02` no longer claims it

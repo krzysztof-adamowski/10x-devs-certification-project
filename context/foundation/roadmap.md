@@ -63,8 +63,8 @@ reason to exist.
 | F-03 | `deploy-pipeline`        | (foundation) a merge to main deploys without hand-built archives | F-01             | NFR (2s acknowledgement)                                | done |
 | S-01 | `accounts-and-sessions`  | register, sign in, and sign out of a private account             | F-01, F-02       | FR-001, FR-002, FR-003, Access Control                  | done |
 | S-02 | `passage-to-saved-cards` | paste a passage and finish with accepted cards saved             | S-01             | FR-004, FR-005, FR-006, FR-007, US-01, Business Logic   | in-progress |
-| S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | proposed |
-| S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | proposed |
+| S-03 | `edit-before-accepting`  | fix a candidate's wording before accepting it                    | S-02             | FR-008, US-01                                           | planning |
+| S-04 | `manage-saved-cards`     | find a saved card in order to edit or delete it                  | S-02             | FR-009, FR-010, FR-011                                  | planning |
 | S-05 | `manual-card-entry`      | write a card by hand without generating one                      | S-02             | FR-012                                                  | proposed |
 | S-06 | `outcome-recording`      | determine the acceptance, AI-origin, and edit rates              | S-03, S-04, S-05 | FR-013, Success Criteria                                | proposed |
 
@@ -283,8 +283,23 @@ rather than reopening them.
   Untriaged candidates are discarded when the session ends, and the interface must say so rather than
   imply they will return. Rejecting must cost no more effort than accepting, or the acceptance target
   measures the interface instead of the cards. The externally required test written from the
-  learner's perspective attaches here, with US-01's acceptance criteria as its basis. If this slice
+  learner's perspective **did not attach here** — it moved to `S-03`, see that entry. If this slice
   slips, the milestone slips.
+- **Landed 2026-09-13:** a signed-in learner pastes up to 12,000 characters with an optional focus
+  hint, watches progress backed by a streamed chunk count, and triages candidates one at a time with
+  accept and reject at equal prominence; each accepted card is written before the next candidate
+  appears, and the passage is cleared **before** the triage state is entered, so no moment exists in
+  which both it and its candidates are live. One gated `@rendermode InteractiveServer` component
+  holds the batch, because navigating between routes would dispose it. The four deterministic rules
+  — the length guard, the target-and-cap computation, the deduplicator and the column bounds — are
+  pure functions with their own tests, which is what keeps the component thin enough to be verified
+  by hand. **Measured on the deployed B1 instance at maximum length (11,984 characters, 11
+  candidates): acknowledgement clearly under 2s, generation under 10s against a 30s budget**, so
+  `TimeoutSeconds` stayed at 30 and the PRD needed no amendment. What the plan did not anticipate:
+  the free tier's 20/day per-model ceiling, which turned one model into a rotation; Gemini answering
+  `503` as readily as `429`; and two Blazor traps recorded in `TenExCards/AGENTS.md` — `Assets` is a
+  protected `ComponentBase` property rather than an injectable service, and a component must leave
+  its state consistent *before* an await, because the renderer runs at the first one that yields.
 - **Status:** in-progress
 
 ### S-03: Learner edits a candidate before accepting it
@@ -301,7 +316,16 @@ rather than reopening them.
   repairs weak candidates instead of rejecting them, acceptance stays high, and generation
   underperforms undetected. The PRD answers this by tracking the edit rate as its secondary success
   measure — which is exactly what `S-06` records.
-- **Status:** proposed
+- **Carries the externally required learner-perspective test, moved here from `S-02` on
+  2026-09-13.** The roadmap originally attached it to `S-02` "with US-01's acceptance criteria as
+  its basis", and `S-02` deliberately did not write it. The reason is US-01's own first acceptance
+  criterion, which requires **accept, reject and edit** at equal prominence: edit does not exist
+  until this slice, so a test written against US-01 in `S-02` would have had to skip its own opening
+  criterion. It is a browser-driven test, so the argument `S-02` makes against component tests — that
+  a `@rendermode InteractiveServer` component cannot be driven by the HTTP harness — does not reach
+  it and is not a reason to defer it again. **This entry is the only durable record of the move**:
+  `S-02`'s plan is archived with its change.
+- **Status:** planning
 
 ### S-04: Learner finds a saved card in order to edit or delete it
 
@@ -317,7 +341,7 @@ rather than reopening them.
   browse-and-organize surface here would reintroduce a Non-Goal — there are no decks, tags, or
   organization in this version. Every query must be scoped to the owning account; the user model is
   flat and there is no cross-account visibility of any kind.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-05: Learner creates a card manually
 
@@ -389,10 +413,23 @@ to copy into issues, but it must not duplicate the detailed roadmap body.
    was retired by `S-01` on 2026-09-12, once an auth cookie surviving a restart became the stronger
    version of the same check.) Owner: user.
    Was blocking: `F-02`, and through it every persisting slice.
-2. **Which model provider generates the candidates?** No client, package, or configuration exists.
-   Note that low request volume does not imply low cost — generation is expensive per request
-   regardless of how rarely it occurs. Owner: user — to be resolved downstream as course-work.
-   Block: `S-02`. Non-blocking by the user's explicit decision.
+2. ~~**Which model provider generates the candidates?** No client, package, or configuration
+   exists.~~ **Resolved 2026-09-13 in `S-02`: Google Gemini on the free tier, reached through its
+   OpenAI-compatible endpoint with the official `OpenAI` .NET package.** Chosen because it is free
+   at this product's scale, supports JSON-schema structured output together with streaming (both
+   established by a throwaway call before the component depended on either), and leaves the provider
+   a base-URL-and-model change away from a paid one. The model is **configuration, not a constant**,
+   which is what let the answer become an ordered rotation rather than a single string when the
+   quota turned out to bind.
+   **Two things the question did not anticipate.** The free tier allows **20 requests per day per
+   model**, measured from a `429` body rather than documentation, which no longer publishes limits
+   at all — so `Gemini:Models` lists `gemini-3.8-flash` first for quality and two `flash-lite`
+   models at 500/day behind it, falling through on `429`, `404` or any `5xx`. And the earlier note
+   that "low request volume does not imply low cost" turned out to be the wrong axis of worry here:
+   cost is zero and **availability** is the constraint.
+   **The accepted risk this carries:** free-tier content may be used for model improvement. The
+   passage is the learner's own pasted text, and nothing in the product promises otherwise today.
+   Revisit if the product ever takes content it does not own.
 3. ~~**How long is the inactivity window before a signed-in session expires?** Carried verbatim from
    the PRD's `## Open Questions`.~~ **Resolved 2026-09-12 in `S-01`: seven days, sliding.**
    `ConfigureApplicationCookie` sets `ExpireTimeSpan` to seven days with `SlidingExpiration` true, so

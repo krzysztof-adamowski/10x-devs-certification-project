@@ -988,3 +988,124 @@ boots are recorded by App Service's own health check as `success`. Pre-existing 
   buys. From phase 2 onward the same access returns every `AspNetUsers.PasswordHash`. What carries
   that residual risk is the sixteen-character password minimum over PBKDF2-HMAC-SHA512, not the key
   ring — see the risk register in `../foundation/infrastructure.md`.
+
+---
+
+# Deployment record — executed 2026-09-13 — passage to saved cards
+
+`S-02` (`passage-to-saved-cards`). The north-star slice: paste a passage, triage the candidates,
+keep the cards you accept. Seven commits went to `main` in one push; the pipeline deployed run
+`34765229698`.
+
+## The first push failed at `Test`, and that is the gate working
+
+Run `34763972434` stopped at `Test` with `Publish`, `Pack`, `Retain`, `Azure login`, `Deploy` and
+`Verify` all **skipped**. Nothing reached production, no migration ran, the site kept serving the
+previous build. Read from the step list, not the colour.
+
+The cause is a permanent asymmetry rather than a one-off, and it is now written into
+`TenExCards/TenExCards.Tests/AGENTS.md`: **`WebApplication.CreateBuilder` loads user-secrets in
+Development, and `WebApplicationFactory` runs in Development**, so every guard `Program.cs` imposes
+is already satisfied on a development machine whether or not the test supplies it. CI has none.
+`S-02` added an unconditional `Gemini:ApiKey` guard; `TenExCardsWebApplicationFactory` and
+`MigrationGuardTests` were given a dummy value and `IdentityConfigurationTests` — which builds its
+own bare factory — was not. 58/58 locally, one failure in CI.
+
+The fix is one `UseSetting` line. The durable part is the command that reproduces CI locally, by
+moving the secret store aside, recorded next to the tests.
+
+## The migration, confirmed from the log rather than a 200
+
+```
+2026-09-13T15:21:18  Applying 1 pending migration(s): 20260912214732_AddCards
+2026-09-13T15:21:18  Migrations applied successfully.
+2026-09-13T15:21:25  Application started.
+```
+
+Exactly one pending migration, applied by name — the same assertion the `S-01` record makes, and the
+reason `lessons.md` says never to read a first `200` as evidence of a restart. `AddCards` is purely
+additive: one table, one index, one foreign key to `AspNetUsers` with cascade delete, nothing
+Identity owns altered. It was applied to `sqldb-tenexcards-dev` first, on 2026-09-12.
+
+## Measurements on the deployed B1 instance
+
+The two numbers this phase exists for. Both were taken at the maximum accepted passage length
+against the live site with a real account; nothing measured on a development machine counts here.
+
+| What | Budget | Measured |
+| --- | --- | --- |
+| Passage | 12,000 characters | 11,984 characters, 2,087 words → **11 candidates** |
+| Acknowledgement | 2 s | **clearly under 2 s** |
+| Generation, submit to first candidate | 30 s | **under 10 s** |
+
+`TimeoutSeconds` therefore **stays at 30** and the PRD needs no amendment. The user had
+pre-authorised raising it if the ceiling proved unattainable; it was not needed.
+
+**A correction to the plan's arithmetic.** It states the target computation "maxes at 10" at 12,000
+characters, assuming ~2,000 words. Real prose at that length runs nearer 2,090 words, so the true
+maximum is **11**. The conclusion is unaffected — the cap of 12 stays unreachable from any accepted
+passage — but 11 is what the ceiling was actually measured against.
+
+## The free tier is 20 requests per day per model, and that shaped the code
+
+Read from a `429` body naming `quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier` and
+`quotaValue: 20`. Google no longer publishes limits in its documentation at all; it defers to a
+per-account dashboard, which for this project confirms every full Flash model at 20/day and the two
+`flash-lite` models at **500/day**.
+
+Two things about that quota mislead and both cost time. The error says `"Please retry in
+1.124106005s"` with `retryDelay: 1s` while the violated quota is **per day**. And an exhausted quota
+looks exactly like a broken client: `ProviderError`, zero chunks, sub-second. What made it legible
+was noticing that every *successful* run happened to follow a rebuild — the build was spending the
+seconds that made earlier calls look spaced out.
+
+The response was an ordered model rotation in configuration rather than a single model. **It was
+initially too narrow**: falling through on `429` alone, it failed whole requests while healthy
+models sat behind a busy one, because Gemini returns **`503 UNAVAILABLE`** under load at least as
+often as it returns `429`. It now falls through on `429`, `404` and any `5xx`, keeps `4xx` fatal, and
+caps the client's own retry at 1. The `~15 s` failures seen before that fix were the client
+retrying the overloaded model three times with backoff.
+
+## Two checks `verify_deploy.py` structurally cannot make
+
+Both done by hand after CI's own run passed, because the verifier follows redirects and asserts
+status only — a gated asset resolves `302 → /Account/Login → 200` and is recorded as a pass.
+
+- Every same-origin asset answers `text/css` or `text/javascript`, never `text/html`.
+- Anonymous `/generate` answers `302` to `/Account/Login?ReturnUrl=%2Fgenerate`, never `401`.
+
+**One asset needed checking separately** and would be missed by any sweep of the page's HTML: the
+unload-warning module is imported dynamically from a gated page, so it never appears in markup. The
+import map carries `./Components/Pages/Generate.razor.js → ./Components/Pages/Generate.v724rpaz4r.razor.js`,
+serving `200 text/javascript` with both exports present.
+
+## No passage text reaches the log — and the first version of this check was worthless
+
+Recorded because the failure mode is subtle. Grepping the downloaded archive for passage phrases
+returned zero hits — but so did a search for `/generate` and `_blazor`, meaning the stream searched
+contained no trace of the session. **`ContainerStream` is the container's startup stdout and stops
+once the app has started**; the app's runtime logging lands in a different file in the same archive.
+Zero hits in the wrong stream proves nothing.
+
+Read correctly, the session is plainly present — the sign-in queries at `15:28:15` and the card
+`INSERT` at `15:29:03` — which is what makes the empty phrase search meaningful. Three independent
+layers keep passage text out: the generator holds no `ILogger` at all and neither does the page; EF
+Core redacts parameter **values** (`@p1='?'`), logging only types and sizes; and
+`Microsoft.AspNetCore` is configured at `Warning`, suppressing per-request logging.
+
+**Still reproducing from earlier records:** `BadImageFormatException` during warm-up appeared again,
+in bursts between `15:20:37` and `15:21:24` — always **before** `Application started` and never
+after. Checked against the archive rather than treated as a regression: the same exception sits in
+the 2026-09-10 and 2026-09-12 logs. Pre-existing platform artifact.
+
+## What this change did NOT close
+
+- **Branch protection on `main` and the CI principal's `Contributor` scope.** Still open, and this
+  change makes it slightly more pointed: a push to `main` now deploys a slice that calls a paid-tier
+  external API with a key from Key Vault.
+- **The free-tier ceiling as a product constraint.** 1,020 generations a day across the rotation is
+  ample for reviewers and nothing like a real user base. The rotation degrades gracefully and says
+  so in plain language, but the ceiling is a choice, not a capability.
+- **Rate limiting or abuse controls on `/generate`.** The route is gated to authenticated users and
+  nothing more. Every signed-in learner can spend the shared daily quota.
+

@@ -52,8 +52,42 @@ requires an authenticated user,
 so a new page is gated unless it says `[AllowAnonymous]` — and some endpoints need that marker
 explicitly, see `### Authorization defaults to protected`.
 
-Still missing: an **LLM client** for generation. Not scaffolded; no package or configuration
-exists. `S-02` brings it, and adding it is expected work rather than scope creep.
+**Generation is live** as of 2026-09-13 (`S-02`, change `passage-to-saved-cards`): Google Gemini
+through its **OpenAI-compatible endpoint**, with the official `OpenAI` NuGet package. The package
+name is not a mistake and the provider is not OpenAI — `OpenAIClientOptions.Endpoint` is what makes
+a typed .NET client reach `generativelanguage.googleapis.com`. `Generation/ICardCandidateGenerator`
+is the only type that knows a provider exists, and the only test double this project permits beyond
+the data provider and the key protector.
+
+**The card-quality rule lives in `Generation/CardGenerationPrompt.cs` as a `const string`, not in
+configuration.** The PRD says that specification *is* the product, so it is reviewed like code and
+`CardGenerationPromptTests` pins each of its four properties — a later agent cannot quietly soften
+it without a red test. Read `## Business Logic` in `context/foundation/prd.md` before touching it;
+when that section changes, the prompt changes with it. Do not restate the generation rules here.
+
+**`Gemini:Models` is an ordered rotation rather than one model, and none of its four properties is
+cosmetic.** It is tried in order, best quality first, because the free tier caps requests **per model
+per day** and the later entries buy availability rather than quality. It falls through on `429`,
+`404` **and any `5xx`** — a rotation that falls through on `429` alone fails whole requests while
+healthy models sit behind a busy one, because this provider signals overload as readily as it
+signals quota. It keeps `400`, `401` and `403` **fatal**, since a fault in the request or the key
+fails identically on every model and rotating only multiplies the wait before saying so. And the
+client's own retry is capped at **1**, because the rotation is the resilience strategy: re-asking an
+overloaded model before trying a healthy one spends the timeout budget backwards. The measured
+limits, the status codes observed and the cost of getting each of these wrong are in the 2026-09-13
+record in `context/deployment/deploy-plan.md`.
+
+**`Components/Pages/Generate.razor.js` is the repository's only `IJSRuntime` interop**, and two
+things about it are worth knowing before adding a second. `ReconnectModal.razor.js` is **not** a
+precedent — it exports nothing and is loaded by a markup `<script type="module">` tag. And the
+fingerprinted module path comes from **`Assets["…"]` used directly in the code-behind**: `Assets` is
+a *protected property on `ComponentBase`* that the framework fills in, so a `.razor.cs` partial
+inherits it. Do **not** inject `ResourceAssetCollection` — it is not a registered service, so that
+compiles cleanly and then throws `InvalidOperationException` at the first render of the page.
+
+What the triage surface deliberately does **not** offer: editing a candidate before accepting it
+(`S-03`), and any way to find, edit or delete a card once saved (`S-04`). There is no card list, and
+the completion summary must not link to one.
 
 ### Authorization defaults to protected
 
@@ -320,10 +354,14 @@ strings otherwise differ by `Initial Catalog` alone.
 **Three data-plane objects no template recreates.** After any teardown these are gone and must be
 rebuilt by hand — `az deployment group create` will not do it:
 
-1. The four vault secrets — `sql-admin-password`, `sql-connection-string`,
-   `sql-dev-user-password`, `sql-dev-connection-string`. The two `-dev` ones are the **only** copy
-   of the contained user's credential; it has no server login, so it cannot be recovered, only
-   dropped and recreated.
+1. The five vault secrets — `sql-admin-password`, `sql-connection-string`,
+   `sql-dev-user-password`, `sql-dev-connection-string`, and `gemini-api-key` (`S-02`). The two
+   `-dev` ones are the **only** copy of the contained user's credential; it has no server login, so
+   it cannot be recovered, only dropped and recreated. `gemini-api-key` is recoverable — reissue it
+   in AI Studio — but note the key format changed: keys now carry an **`AQ.`** prefix and are 53
+   characters, not the 39-character `AIza…` form the documentation and every example still show. A
+   leak check grepping `AIza` alone would miss this project's actual key. The site's existing
+   `Key Vault Secrets User` assignment already covers it; no new role assignment was needed.
 2. The contained `tenexdev` user (T-SQL, in the dev database).
 3. The development-machine firewall rule (`dev-machine-krzychu`). **Re-add it when your home IP
    changes** — set with `az sql server firewall-rule create`, deliberately not in the template
@@ -345,6 +383,14 @@ the container otherwise does not serve at all.
 the operator account holds `Key Vault Secrets Officer`, which confers nothing on a key. It answers
 `(Forbidden)`, indistinguishable from a missing key. Use the ARM control-plane read instead:
 `az rest --method get --url ".../Microsoft.KeyVault/vaults/kv-tenexcards-plc/keys/dataprotection-key?api-version=2024-11-01"`.
+
+**`Gemini__ApiKey` is the third app setting, and it obeys the same ordering rule** (`S-02`). It
+holds a Key Vault reference to `gemini-api-key`, so unlike `DataProtection__KeyIdentifier` it *is* a
+`@Microsoft.KeyVault(...)` value and the trailing-slash rule below applies to it. `Program.cs`
+guards it **unconditionally** — not wrapped in the Development exclusion the key-identifier guard
+uses, because a development machine genuinely needs an API key to generate anything, whereas it must
+not need vault *key* permissions. So the setting must exist and report `Resolved` **before** the
+build that reads it merges, or the container does not serve at all. CI never sets it.
 
 **Checking that the Key Vault reference resolves.** The app setting
 `ConnectionStrings__DefaultConnection` holds a versionless reference (note the **trailing slash**
