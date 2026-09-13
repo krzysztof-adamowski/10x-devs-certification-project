@@ -881,12 +881,12 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [x] 4.1 `main` workflow run green across the full step list
-- [x] 4.2 `scripts/verify_deploy.py` passes in that run
+- [x] 4.1 `main` workflow run green across the full step list — 54082ce
+- [x] 4.2 `scripts/verify_deploy.py` passes in that run — 54082ce
 
 #### Manual
 
-- [x] 4.3 Live `Cards` table has the `Edited` column
+- [x] 4.3 Live `Cards` table has the `Edited` column — 54082ce
 - [ ] 4.4 Live edited accept stores `Edited = 1`; untouched accept stores `Edited = 0`
 - [ ] 4.5 An accepted edited card survives a refresh
 - [ ] 4.6 Three actions equally prominent in a real browser, none confirming
@@ -897,9 +897,9 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [x] 5.1 Solution builds and tests pass
-- [x] 5.2 `TenExCards/AGENTS.md` names three project subfolders
-- [x] 5.3 `TenExCards.E2E/AGENTS.md` exists and is referenced from `TenExCards/AGENTS.md`
+- [x] 5.1 Solution builds and tests pass — f9fd25e
+- [x] 5.2 `TenExCards/AGENTS.md` names three project subfolders — f9fd25e
+- [x] 5.3 `TenExCards.E2E/AGENTS.md` exists and is referenced from `TenExCards/AGENTS.md` — f9fd25e
 
 #### Manual
 
