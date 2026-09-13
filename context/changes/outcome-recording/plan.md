@@ -694,7 +694,7 @@ captured at the time and recorded in the runbook.
 
 #### Manual
 
-- [ ] 2.5 App runs locally in Development via `--launch-profile http`, not `--no-launch-profile`
+- [x] 2.5 App runs locally in Development via `--launch-profile http`, not `--no-launch-profile` — 49cfb8f
 - [ ] 2.6 Completed batch row sums to the candidate count, `EditedCount` matches
 - [ ] 2.7 Abandoned batch leaves counters below the candidate count
 - [ ] 2.8 A save failure during accept neither advances the session nor increments the counter, and a
@@ -704,14 +704,14 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [ ] 3.1 Solution builds and the suite stays green
+- [x] 3.1 Solution builds and the suite stays green
 
 #### Manual
 
-- [ ] 3.2 `scripts/outcome_rates.sql` runs to completion against `sqldb-tenexcards-dev`, five result sets
-- [ ] 3.3 Rates match a hand-count of the dev rows
-- [ ] 3.4 Deleting a generated dev card moves the origin share and leaves the edit rate unchanged
-- [ ] 3.5 No connection string or password in any tracked file
+- [x] 3.2 `scripts/outcome_rates.sql` runs to completion against `sqldb-tenexcards-dev`, five result sets
+- [x] 3.3 Rates match a hand-count of the dev rows
+- [x] 3.4 Deleting a generated dev card moves the origin share and leaves the edit rate unchanged
+- [x] 3.5 No connection string or password in any tracked file
 
 ### Phase 4: Deploy and verify live
 
