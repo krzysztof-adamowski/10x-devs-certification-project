@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-09-13
+> Last updated: 2026-09-14
 
 ## 1. Strategy
 
@@ -84,7 +84,7 @@ artifacts appear on disk.
 
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Pipeline guarantees under test | A change to pipeline ordering or authorization fails a test rather than reaching production green, and the deploy gate stops recording a redirected asset as a pass | #1, #5 | integration, gates | researched | `context/changes/testing-pipeline-guarantees/` |
+| 1 | Pipeline guarantees under test | A change to pipeline ordering or authorization fails a test rather than reaching production green, and the deploy gate stops recording a redirected asset as a pass | #1, #5 | integration, gates | complete | `context/changes/testing-pipeline-guarantees/` |
 | 2 | Provider rotation behaviour | The provider status-to-action matrix is enforced by a test instead of by a comment, with zero live quota spent | #2 | unit, integration | not started | — |
 | 3 | Write-path integrity | Every route that writes a card is behind the ownership boundary and the storage bounds, and no route produces a card the learner did not ask for | #3, #6, #7 | integration, e2e | not started | — |
 | 4 | Measurement integrity before `S-06` | Card origin and edit provenance are correct at the moment of the write, on every creation route, and immune to later edits | #4 | integration | not started | — |
@@ -139,9 +139,10 @@ before that it is planned.
 | compile / type safety | local + CI | required (wired) | type drift — implicit in `dotnet test` and the Release publish |
 | unit + integration | local + CI | required (wired) | logic regressions; gates the deploy before any publish work happens |
 | archive shape | CI | required (wired) | the four-assertion check on the deployable archive; each failure deploys successfully and breaks at runtime |
-| deployed-site smoke | CI | required (wired); **strengthened by §3 Phase 1** | a page whose assets do not serve. Today it asserts status and follows redirects, so a gated asset reads as a pass — Phase 1 adds the content-type assertion that closes this |
+| deployed-site smoke | CI | required (wired); **strengthened by §3 Phase 1, landed** | a page whose assets do not serve, an asset served as `text/html` because it is gated, a root page that redirected to sign-in, and a container no longer running as Production (asserted through the HSTS header). Status alone is no longer the oracle |
 | e2e on critical flows | CI | wired, **non-gating** — revisit after §3 Phase 3 | broken learner journey. Promotion bar is recorded in `TenExCards.E2E/AGENTS.md`: stable green across many merges with every red traced to a real defect. That bar is earned over time, not by a rollout phase |
 | AI-native rules-drift review | review time | **recommended, never required** — after §3 Phase 5 | weakening of a rule that lives as prose rather than as an assertion |
+| deploy-script self-check | CI | required (wired by §3 Phase 1) | a syntax error in either deploy script, and a weakened assertion in `verify_deploy.py`. Runs before `Test`, so a broken gate stops the job rather than a deploy |
 | lint / format | local + CI | **optional, deliberately** | style drift only. It maps to none of §2's seven risks, and §1 principle #1 outranks a default checklist. Revisit if formatting churn ever obscures a review |
 
 Not listed, and deliberately: infrastructure-template gates, and a post-edit hook. The first
@@ -156,8 +157,32 @@ it.
 
 ### 6.1 Adding a pipeline or authorization test
 
-- TBD — see §3 Phase 1, for the "a guarantee removed from the pipeline goes red as a test,
-  not green as a deploy" pattern.
+- **Location and naming**: `TenExCards/TenExCards.Tests/`, one file per guarantee class.
+  Read `TenExCards.Tests/AGENTS.md` first — it owns the harness rules, and this section
+  does not repeat them.
+- **Reference tests**: `PipelineMetadataTests` (authorization metadata),
+  `BootPathGuardTests` (configuration the boot path demands).
+- **Run**: `dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj`, plus
+  `python scripts/verify_deploy.py --self-test` when the change touches the deploy gate.
+- **The pattern, in one line each.** For an authorization guarantee, enumerate
+  `EndpointDataSource` and assert the `IAllowAnonymous` partition as an **exact set**, with
+  the static-asset count as its own control — a status-code probe cannot see a marker on an
+  endpoint nobody wrote a probe for, and an exact set fails on an addition as well as a
+  removal. For a boot-path demand, assert the guard by its **message** under a second,
+  Production-shaped host, with *the same absence under Development* as the in-run control.
+- **Three things that will bite.** The shared factory pins `Environments.Development`, so
+  the Production branch is unreachable through it — that is deliberate, not an oversight, and
+  a second bare host is the way in. A bare host built as Development loads the developer's
+  user-secrets, so an "omitted" setting is not omitted and the test passes in CI while failing
+  locally. And four guards throw `InvalidOperationException` during service configuration, so
+  a type-only assertion is satisfied by whichever throws first.
+- **The deploy-side twin** lives in `scripts/verify_deploy.py --self-test`. Anything asserted
+  about the live site rather than the pipeline belongs there — `UseHsts()` excludes `localhost`
+  by default, so HSTS is one of the things only that side can see.
+- **Prove it can fail before trusting it.** Break it deliberately, watch it go red for the
+  right reason, revert. For a CI gate, read the run's **step list**, not its colour; a
+  `workflow_dispatch` on a branch does this without touching production, because the federated
+  credential is exact-match on `refs/heads/main`.
 
 ### 6.2 Adding a provider-behaviour test without spending quota
 
@@ -190,6 +215,17 @@ it.
 (Appended by `/10x-implement` as each phase lands — two or three lines on anything the phase
 taught that the pattern above does not already say.)
 
+**Phase 1 — Pipeline guarantees under test (2026-09-14).** Three things the pattern above
+states but does not explain. A Production-shaped host given a real key identifier *does* reach
+Key Vault — measured, failing `keys/wrap/action` from the operator's own `az` session while boot
+and `GET /` both still succeeded — so the guard's control cannot be "the setting present ⇒ it
+boots"; it is the same absence under Development. `Gemini:Models` could not be tested as an
+absence at all: it ships in `appsettings.json` and .NET configuration has no deletion, so the
+test asserts the shipped rotation is non-empty rather than faking a state no host can produce.
+And the acceptance cases in a self-test are not padding — tightening the root-redirect rule to
+reject every same-host redirect was caught only by them, and would otherwise have reported
+`httpsOnly` working as a broken deploy.
+
 ## 7. What We Deliberately Don't Test
 
 Exclusions agreed during the rollout. Future contributors should respect these unless the
@@ -217,6 +253,23 @@ underlying assumption changes.
   provider — it invents deletions and omits real ones — so the control is a human
   snapshot-deploy-diff, not an assertion. Re-evaluate only if that prediction becomes
   trustworthy. (Source: `TenExCards/AGENTS.md`.)
+- **Whether a deployed circuit actually works.** `_framework/blazor.web.js` returns `200`
+  whether or not any circuit opens, so a deploy with every circuit dead passes the gate fully
+  green. Deferred on 2026-09-10 because circuits carried no product behaviour; `S-01`, `S-03`
+  and `S-04` have since landed, so **re-deferred on 2026-09-14 with a new trigger**: revisit
+  when `TenExCards.E2E` is promoted to gating (§5), since that suite already drives real
+  circuits and a gate-side probe would duplicate it at higher cost while coupling the deploy
+  script to a framework-internal protocol with no stability contract. **The residue is real**
+  — E2E is `continue-on-error`, so a dead circuit still reports green in CI today.
+- **An anonymous `403`.** `UseStatusCodePagesWithReExecute("/not-found")` catches every `4xx`,
+  so a `403` would render "does not exist". Measured 2026-09-14: it has no trigger. The
+  fallback policy *challenges* with a `302` rather than forbidding, and no page carries a
+  component-level `[Authorize]`, so an anonymous caller never receives a `403`. Re-evaluate the
+  first time a policy that can forbid an authenticated user is added.
+- **HSTS through the test host.** `UseHsts()`'s default excluded-hosts list contains
+  `localhost`, so the header is absent in-process even over an `https` scheme — measured
+  2026-09-14. The equivalent assertion lives in `scripts/verify_deploy.py`, against the live
+  hostname, where it doubles as the only thing watching `ASPNETCORE_ENVIRONMENT`.
 - **Paging, sorting, or browsing the saved-card list.** There is none by decision; the
   requirement was rewritten during shaping from "view every card" to "find a card in order to
   edit or delete it". A test here would be testing a Non-Goal into existence. (Source: PRD
@@ -224,7 +277,7 @@ underlying assumption changes.
 
 ## 8. Freshness Ledger
 
-- Strategy (§1–§5) last reviewed: 2026-09-13
+- Strategy (§1–§5) last reviewed: 2026-09-14
 - Stack versions last verified: 2026-09-13
 - AI-native tool references last verified: 2026-09-13
 

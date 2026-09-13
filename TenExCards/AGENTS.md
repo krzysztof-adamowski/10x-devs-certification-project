@@ -169,10 +169,12 @@ endpoint-routes more than page components — so the rule has a trap in it:
   an unauthenticated learner must reach it; anything else goes under `Components/Pages/`.
 - **`MapStaticAssets()` carries `.AllowAnonymous()`, and removing it breaks the site silently.**
   Without it every stylesheet and script `302`s to the login path, and the page renders unstyled.
-  **`scripts/verify_deploy.py` cannot catch this**: it sends no cookies and follows redirects, so a
-  gated asset resolves `302 → /Account/Login → 200` and is recorded as a pass. It asserts status,
-  never content type. Verify by checking that each asset answers `text/css` or a JavaScript type
-  rather than `text/html`.
+  It used to be invisible to `scripts/verify_deploy.py`: that script sends no cookies and follows
+  redirects, so a gated asset resolved `302 → /Account/Login → 200` and was recorded as a pass.
+  **Both halves are now asserted** — `PipelineMetadataTests` pins the marker before the merge, and
+  the deploy gate asserts each asset's **media type** rather than its status, because the status is
+  `200` either way. `fetch()` returns headers from inside its `with` block for exactly this reason;
+  moving that return back outside silently restores the old hole.
 - **`AddInteractiveServerRenderMode()`'s builder is deliberately left un-anonymous.**
   `MapRazorComponents<App>()` returns one builder covering *every* page route, and an
   `IAllowAnonymous` marker anywhere in an endpoint's metadata short-circuits authorization for it —
@@ -191,6 +193,24 @@ endpoint-routes more than page components — so the rule has a trap in it:
 the render-mode bullet above is the one place that deliberately refuses a third. If you find
 yourself adding one, record here which of the two it resembles and why the render-mode reasoning
 does not apply to it.
+
+**That count is now enforced by `PipelineMetadataTests`, not by a human running `grep`.** It
+enumerates the endpoint graph and pins the anonymous and gated sets **exactly**, so a third call
+fails a test — including one added by dropping a page into `Components/Account/Pages/`, where the
+marker is inherited from `_Imports.razor` and appears in no diff anyone would review. A new page
+failing that test is the test working: classify the page, do not relax the list.
+
+**Two things in `Components/` look like guarantees and are not**, both measured 2026-09-14, both
+left in place deliberately. `Routes.razor`'s `<NotAuthorized><RedirectToLogin /></NotAuthorized>`
+has no trigger — the Router is statically rendered, so there is no client-side routing and every
+navigation is an HTTP request the fallback policy already sees; an enhanced-navigation request for
+a gated route was measured returning `302`, and `PipelineMetadataTests` pins that. It becomes
+load-bearing the moment `Routes.razor` gains `@rendermode`, which is why it is not deleted as dead
+code. And `UseStatusCodePagesWithReExecute("/not-found")` catching every `4xx` cannot currently
+render "does not exist" for a permission failure: the fallback policy *challenges* with a `302`
+rather than forbidding, and no page carries a component-level `[Authorize]`, so an anonymous caller
+never receives a `403`. Revisit both the first time a policy that can forbid an authenticated user
+is added.
 
 An unauthenticated request for a gated route must produce a **`302` to the login path, never a
 `401`**: `verify_deploy.py` treats `401` as a hard failure and `403` as transient, burning the whole
@@ -374,6 +394,19 @@ changing. Three settings there are deliberate and must not be "fixed":
   `verify_deploy.py` is the stronger signal, and `timeout-minutes` is the backstop.
 - **`permissions` is exactly `id-token: write` + `contents: read`.** `actions: read` is absent on
   purpose — see the out-of-scope list below.
+
+**`Verify the deploy scripts` runs first, and gates the gate.** It is `py_compile` over both
+scripts plus `verify_deploy.py --self-test`, placed ahead of `Test` because it is the cheapest step
+in the job: this workflow triggers only on push to `main`, so before it existed a syntax error in
+either script was first observed **on `main`, mid-deploy**. The self-test's acceptance cases are
+not padding — they are the control that stops a future tightening of the root-redirect rule from
+rejecting the `http→https` upgrade `httpsOnly` produces.
+
+**A `workflow_dispatch` on a branch is the safe way to prove a step gates.** The dispatch trigger
+carries no ref restriction, while the federated credential below is exact-match on
+`refs/heads/main` — so such a run executes every step up to `Azure login (OIDC)`, fails there with
+`AADSTS700213`, and **cannot deploy**. Measured 2026-09-14; it is how the step above was proven to
+skip everything after it. Do not use a push to `main` for that.
 
 **Auth is OIDC; there is no stored Azure credential.** Only three non-confidential identifiers
 sit in GitHub secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`), and the

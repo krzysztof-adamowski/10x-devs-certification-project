@@ -754,25 +754,25 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 5.1 Working tree clean of every deliberate breakage
-- [x] 5.2 Full suite green after all reverts
+- [x] 5.1 Working tree clean of every deliberate breakage — 69c5bd8
+- [x] 5.2 Full suite green after all reverts — 69c5bd8
 
 #### Manual
 
-- [x] 5.3 Sub-phase 1 and 2 assertions observed red and reverted
-- [x] 5.4 Sub-phase 3 and 4 assertions observed red via `--self-test` and reverted
-- [x] 5.5 CI run with a deliberately failing self-test step; step list read and recorded; reverted
+- [x] 5.3 Sub-phase 1 and 2 assertions observed red and reverted — 69c5bd8
+- [x] 5.4 Sub-phase 3 and 4 assertions observed red via `--self-test` and reverted — 69c5bd8
+- [x] 5.5 CI run with a deliberately failing self-test step; step list read and recorded; reverted — 69c5bd8
 
 ### Phase 6: Cookbook and records
 
 #### Automated
 
-- [ ] 6.1 The suite passes
-- [ ] 6.2 `verify_deploy.py --self-test` exits `0`
-- [ ] 6.3 §6.1 no longer matches `TBD`
+- [x] 6.1 The suite passes
+- [x] 6.2 `verify_deploy.py --self-test` exits `0`
+- [x] 6.3 §6.1 no longer matches `TBD`
 
 #### Manual
 
-- [ ] 6.4 §6.1 answers "how do I add a pipeline test?" standalone
-- [ ] 6.5 `TenExCards/AGENTS.md` no longer implies a human guards the `.AllowAnonymous()` count
-- [ ] 6.6 The F4 re-deferral states its residue plainly
+- [x] 6.4 §6.1 answers "how do I add a pipeline test?" standalone
+- [x] 6.5 `TenExCards/AGENTS.md` no longer implies a human guards the `.AllowAnonymous()` count
+- [x] 6.6 The F4 re-deferral states its residue plainly
