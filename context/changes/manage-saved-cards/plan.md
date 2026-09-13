@@ -598,7 +598,7 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Manual
 
-- [ ] 1.6 Generation and triage still work unchanged against `sqldb-tenexcards-dev`
+- [x] 1.6 Generation and triage still work unchanged against `sqldb-tenexcards-dev`
 - [x] 1.7 No migration file exists and nothing is pending — 24268a4
 
 ### Phase 2: The `/cards` page
@@ -616,7 +616,7 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 - [x] 2.6 500 characters saves, 501 is refused in place without leaving edit state — ec856b3
 - [x] 2.7 Delete needs the second click; Cancel restores the row; the deletion persists — ec856b3
 - [x] 2.8 At most one row is ever out of view state — ec856b3
-- [ ] 2.9 Rapid typing never settles on an earlier prefix's results
+- [x] 2.9 Rapid typing never settles on an earlier prefix's results
 - [x] 2.10 All three informational states render correctly — ec856b3
 - [x] 2.11 A forced store failure does not produce the generic Blazor error UI — ec856b3
 
@@ -637,14 +637,14 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Automated
 
-- [ ] 4.1 `main` workflow run green across the full step list
-- [ ] 4.2 `scripts/verify_deploy.py` passes in that run
+- [x] 4.1 `main` workflow run green across the full step list
+- [x] 4.2 `scripts/verify_deploy.py` passes in that run
 
 #### Manual
 
-- [ ] 4.3 Anonymous `/cards` on the live site returns `302`, not `401`
-- [ ] 4.4 Live assets answer `text/css` / a JavaScript type, not `text/html`
-- [ ] 4.5 A live edit survives a refresh, confirmed by query against `sqldb-tenexcards`
-- [ ] 4.6 A live delete removes the row, confirmed by the same query
-- [ ] 4.7 Two-account cross-boundary probe finds nothing across accounts on the live database
-- [ ] 4.8 Search latency acceptable live, and stale-query cancellation holds under real latency
+- [x] 4.3 Anonymous `/cards` on the live site returns `302`, not `401`
+- [x] 4.4 Live assets answer `text/css` / a JavaScript type, not `text/html`
+- [x] 4.5 A live edit survives a refresh, confirmed by query against `sqldb-tenexcards`
+- [x] 4.6 A live delete removes the row, confirmed by the same query
+- [x] 4.7 Two-account cross-boundary probe finds nothing across accounts on the live database
+- [x] 4.8 Search latency acceptable live, and stale-query cancellation holds under real latency

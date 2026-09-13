@@ -1,7 +1,7 @@
 ---
 change_id: manage-saved-cards
 title: Learner finds a saved card in order to edit or delete it
-status: impl_reviewed
+status: implemented
 created: 2026-09-13
 updated: 2026-09-13
 archived_at: null
