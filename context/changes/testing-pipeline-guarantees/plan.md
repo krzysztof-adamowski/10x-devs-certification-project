@@ -741,27 +741,27 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 4.1 `verify_deploy.py --self-test` exits `0`
-- [x] 4.2 `py_compile` succeeds on both scripts
-- [x] 4.3 The suite still passes
+- [x] 4.1 `verify_deploy.py --self-test` exits `0` — b9641ff
+- [x] 4.2 `py_compile` succeeds on both scripts — b9641ff
+- [x] 4.3 The suite still passes — b9641ff
 
 #### Manual
 
-- [x] 4.4 Each self-test case observed failing under an inverted predicate; reverted
-- [x] 4.5 The scheme-upgrade acceptance case fails if all same-host redirects are rejected
+- [x] 4.4 Each self-test case observed failing under an inverted predicate; reverted — b9641ff
+- [x] 4.5 The scheme-upgrade acceptance case fails if all same-host redirects are rejected — b9641ff
 
 ### Phase 5: Prove every new gate can fail
 
 #### Automated
 
-- [ ] 5.1 Working tree clean of every deliberate breakage
-- [ ] 5.2 Full suite green after all reverts
+- [x] 5.1 Working tree clean of every deliberate breakage
+- [x] 5.2 Full suite green after all reverts
 
 #### Manual
 
-- [ ] 5.3 Sub-phase 1 and 2 assertions observed red and reverted
-- [ ] 5.4 Sub-phase 3 and 4 assertions observed red via `--self-test` and reverted
-- [ ] 5.5 CI run with a deliberately failing self-test step; step list read and recorded; reverted
+- [x] 5.3 Sub-phase 1 and 2 assertions observed red and reverted
+- [x] 5.4 Sub-phase 3 and 4 assertions observed red via `--self-test` and reverted
+- [x] 5.5 CI run with a deliberately failing self-test step; step list read and recorded; reverted
 
 ### Phase 6: Cookbook and records
 
