@@ -1097,18 +1097,18 @@ this phase is sequenced first.
 
 #### Automated
 
-- [ ] 4.1 `main` workflow run green across the full step list
-- [ ] 4.2 `scripts/verify_deploy.py` passes in that run
+- [x] 4.1 `main` workflow run green across the full step list
+- [x] 4.2 `scripts/verify_deploy.py` passes in that run
 
 #### Manual
 
-- [ ] 4.3 Live assets answer `text/css` / a JavaScript type, not `text/html`
-- [ ] 4.4 Anonymous `/generate` on the live site returns `302`, not `401`
-- [ ] 4.5 Acknowledgement under 2 seconds on the deployed circuit at maximum length
-- [ ] 4.6 Generation ceiling measured and recorded; timeout raised and flagged only if it was missed
-- [ ] 4.7 A card accepted live survives a refresh, confirmed by query against `sqldb-tenexcards`
-- [ ] 4.8 No passage text in the deployed schema or the App Service log stream
-- [ ] 4.9 A live generation failure reports itself and leaves the passage recoverable
+- [x] 4.3 Live assets answer `text/css` / a JavaScript type, not `text/html`
+- [x] 4.4 Anonymous `/generate` on the live site returns `302`, not `401`
+- [x] 4.5 Acknowledgement under 2 seconds on the deployed circuit at maximum length
+- [x] 4.6 Generation ceiling measured and recorded; timeout raised and flagged only if it was missed
+- [x] 4.7 A card accepted live survives a refresh, confirmed by query against `sqldb-tenexcards`
+- [x] 4.8 No passage text in the deployed schema or the App Service log stream
+- [x] 4.9 A live generation failure reports itself and leaves the passage recoverable
 
 ### Phase 5: Update the repository record
 

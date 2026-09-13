@@ -290,3 +290,66 @@ it could only fire if the interop call genuinely yielded, which proves the `Gene
 module import resolves. Had the import silently failed, `SetUnloadWarningAsync` would have returned
 synchronously and the crash would never have appeared.
 
+### Phase 4 measurements on the deployed B1 instance, 2026-09-13
+
+Taken against `https://tenexcards-ka.azurewebsites.net` with a real account, at the maximum accepted
+passage length. These are the numbers `deploy-plan.md` needs; everything before this was measured on
+a development machine and does not count.
+
+| What | Result |
+| --- | --- |
+| Deploy | run `34765229698`, every step green read from the step list |
+| Production migration | `Applying 1 pending migration(s): 20260912214732_AddCards` → `Migrations applied successfully` → `Application started`, 15:21:18-25 UTC |
+| Passage | 11,984 characters, 2,087 words → 11 candidates requested |
+| **Acknowledgement (4.5)** | **clearly under 2 s** — the PRD's bound |
+| **Generation ceiling (4.6)** | **under 10 s** against a 30 s budget |
+| `TimeoutSeconds` | **unchanged at 30.** The ceiling held, so the pre-authorised raise was not needed and the PRD needs no amendment |
+| Durability (4.7) | a card accepted live survived a refresh, confirmed by query against `sqldb-tenexcards` |
+| Failure path (4.9) | a live failure reported itself with the passage still in the textarea |
+
+**On the target count.** The plan states the computation "maxes at 10" at 12,000 characters, assuming
+~2,000 words. Real prose at that length runs nearer 2,090 words, so the true maximum is **11**. The
+plan's conclusion is unaffected — the cap of 12 stays unreachable from any accepted passage — but 11
+is the number the ceiling was actually measured against.
+
+**Two checks `scripts/verify_deploy.py` structurally cannot make, both done by hand.** Every
+same-origin asset answers `text/css` or `text/javascript`, never `text/html`; and anonymous
+`/generate` answers `302` to `/Account/Login?ReturnUrl=%2Fgenerate`, never `401`. The verifier
+follows redirects, so a gated asset would resolve `302 → login → 200` and be recorded as a pass.
+
+**The unload-warning module was verified in production**, since it is the one asset that never
+appears in the page's HTML — it is imported dynamically from a gated page. The import map carries
+`./Components/Pages/Generate.razor.js → ./Components/Pages/Generate.v724rpaz4r.razor.js`, which
+serves `200 text/javascript` with both `register` and `unregister` exported.
+
+### No passage reaches the App Service log, and here is why the check is not vacuous
+
+The first attempt at this check was worthless and is recorded as such. Grepping the downloaded
+archive for passage phrases returned zero — but so did a search for `/generate` and `_blazor`, which
+meant the stream being searched contained no trace of the session at all. **`ContainerStream` is the
+container's startup stdout and stops once the app has started**; the app's runtime logging lands in a
+different file in the same archive. Zero hits in the wrong stream proves nothing.
+
+Reading the right file, the session is plainly there:
+
+```
+15:28:15  SELECT ... FROM [AspNetUsers] WHERE [a].[Id] = @p
+15:29:03  INSERT INTO [Cards] ([Id],[Answer],[CreatedAt],[Origin],[OwnerId],[Prompt])
+          Parameters=[@p0='?' (DbType = Guid), @p1='?' (Size = 1000), ...]
+```
+
+That INSERT is the accepted card, which is what makes the empty phrase search meaningful. Three
+independent layers keep passage text out: the generator holds no `ILogger` at all and neither does
+the page; EF Core redacts parameter **values** (`@p1='?'`), logging only types and sizes; and
+`Microsoft.AspNetCore` is configured at `Warning`, which suppresses per-request logging.
+
+### `BadImageFormatException` at container start is a pre-existing non-defect
+
+Every container start in the retained logs — 2026-09-12 at 09:47, 12:29, 13:32 and 14:32, and this
+deploy at 15:20:37-15:21:24 — emits bursts of `System.BadImageFormatException` through the exception
+handler, always **before** `Application started` and never after. It is the App Service warm-up probe
+retrying against a container whose assemblies are still being read off the network-mounted
+filesystem. It predates `S-02`, does not prevent the site serving, and the startup probe succeeds
+seconds later. Recorded here so a future agent reading a startup log does not chase it, in the same
+spirit as the `HttpsRedirectionMiddleware[3]` line already documented in `TenExCards/AGENTS.md`.
+
