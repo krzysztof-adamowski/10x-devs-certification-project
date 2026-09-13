@@ -39,6 +39,14 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
 
+    <!-- THE Condition IS LOAD-BEARING — do not remove it as noise. It is half of what keeps the
+         E2E harness out of production; the other half is the #if DEBUG around E2EHarness.cs and
+         ScriptedCardCandidateGenerator.cs. CI publishes with -c Release, so the provider is absent
+         from the deployed archive. Without the Condition a test provider ships to production and
+         nothing reports it. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.12"
+                      Condition="'$(Configuration)' == 'Debug'" />
+
     <!-- THE PACKAGE IS `OpenAI`; THE PROVIDER IS GEMINI — do not delete this as a mistaken
          dependency, and do not conclude from it that this app talks to OpenAI. Google serves an
          OpenAI-compatible endpoint, and this client accepts a custom base URL via

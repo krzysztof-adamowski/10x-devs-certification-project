@@ -23,6 +23,10 @@
 #   `dotnet publish` passes no `-o`. The stock output path is what `pack.py` defaults to,
 #   so CI and a local run pack the exact same directory. Adding `-o` silently decouples them.
 #
+#   `continue-on-error: true` on the end-to-end step, and nowhere else. Every other assertion
+#   here gates the deploy; that one does not, because a browser suite fails for reasons
+#   unrelated to the change under deploy. See the step's own comment.
+#
 # Deliberately OUT of scope for this workflow:
 #
 #   * Infrastructure. `infra/main.bicep` is never deployed from here and `what-if` is never
@@ -78,6 +82,20 @@ jobs:
       # publish/pack work happens, not after.
       - name: Test
         run: dotnet test TenExCards/TenExCards.Tests/TenExCards.Tests.csproj
+
+      # THE ONLY NON-GATING ASSERTION IN THIS FILE, and that is deliberate. It drives a real
+      # browser through the whole learner journey against a locally started application with a
+      # scripted generator -- valuable, but browser suites fail for reasons that have nothing to
+      # do with the change under deploy, and blocking production on that trade is not worth it
+      # until this step has a track record. Revisit once it has one. The Test step above stays
+      # the gate: it names TenExCards.Tests by path, so it cannot pick this project up.
+      - name: Learner journey (end-to-end, non-gating)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          dotnet build TenExCards/TenExCards.E2E/TenExCards.E2E.csproj
+          pwsh TenExCards/TenExCards.E2E/bin/Debug/net10.0/playwright.ps1 install chromium --with-deps
+          dotnet test TenExCards/TenExCards.E2E/TenExCards.E2E.csproj
 
       # `SourceRevisionId` is appended to AssemblyInformationalVersion by the SDK, which is
       # where the footer build marker reads it from. Without it the deployed page cannot say

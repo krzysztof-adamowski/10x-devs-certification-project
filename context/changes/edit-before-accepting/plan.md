@@ -844,19 +844,19 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [x] 2.1 Solution builds
-- [x] 2.2 Tests pass
-- [x] 2.3 `CandidateEditTests` observed failing with `Trim()` removed from `WasEdited`
-- [x] 2.4 `AuthBoundaryTests` still shows `/generate` answering `302`
+- [x] 2.1 Solution builds — 63f11ae
+- [x] 2.2 Tests pass — 63f11ae
+- [x] 2.3 `CandidateEditTests` observed failing with `Trim()` removed from `WasEdited` — 63f11ae
+- [x] 2.4 `AuthBoundaryTests` still shows `/generate` answering `302` — 63f11ae
 
 #### Manual
 
-- [ ] 2.5 Three read-only buttons identical in size and weight, none confirming
+- [x] 2.5 Three read-only buttons identical in size and weight, none confirming
 - [ ] 2.6 Edited accept stores the new wording with `Edited = 1`
 - [ ] 2.7 Untouched accept stores `Edited = 0`
 - [ ] 2.8 Editor opened and closed with no change stores `Edited = 0`
-- [ ] 2.9 Cancel restores the generated wording and all three actions
-- [ ] 2.10 Invalid edit disables Keep and reddens the counter; discard and cancel stay available
+- [x] 2.9 Cancel restores the generated wording and all three actions
+- [x] 2.10 Invalid edit disables Keep and reddens the counter; discard and cancel stay available
 - [ ] 2.11 Handler refuses an invalid edit with the disabled attribute removed
 - [ ] 2.12 Forced save failure keeps edit mode and the typing; retry saves once
 
@@ -864,16 +864,16 @@ an archive redeploy is a genuine rollback for Phases 2 onward and a partial one 
 
 #### Automated
 
-- [ ] 3.1 Solution builds
-- [ ] 3.2 Existing tests pass unchanged
-- [ ] 3.3 Journey passes locally after `playwright install chromium`
-- [ ] 3.4 Release publish carries no in-memory provider and no `ScriptedCardCandidateGenerator`
-- [ ] 3.5 `MigrationGuardTests` still passes
+- [x] 3.1 Solution builds
+- [x] 3.2 Existing tests pass unchanged
+- [x] 3.3 Journey passes locally after `playwright install chromium`
+- [x] 3.4 Release publish carries no in-memory provider and no `ScriptedCardCandidateGenerator`
+- [x] 3.5 `MigrationGuardTests` still passes
 
 #### Manual
 
-- [ ] 3.6 App serves `/generate` with `Testing__E2E=true` and no key, connection string or vault access
-- [ ] 3.7 Without the flag the app still fails at boot naming both Gemini settings
+- [x] 3.6 App serves `/generate` with `Testing__E2E=true` and no key, connection string or vault access
+- [x] 3.7 Without the flag the app still fails at boot naming both Gemini settings
 - [ ] 3.8 A deliberately broken assertion reddens the E2E step while the deploy still completes
 - [ ] 3.9 The journey watched running headed at least once
 

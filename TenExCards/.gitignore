@@ -109,6 +109,12 @@ StyleCopReport.xml
 # Visual Studio Trace Files
 *.e2e
 
+# The rule above is for trace files, but it also matches this project's DIRECTORY name, which
+# silently excluded the whole end-to-end suite from git — nothing reports that, and CI fails on a
+# project that is not there. Git never descends into an excluded directory, so the negation has to
+# name the directory itself.
+!TenExCards.E2E/
+
 # ReSharper is a .NET coding add-in
 _ReSharper*/
 *.[Rr]e[Ss]harper

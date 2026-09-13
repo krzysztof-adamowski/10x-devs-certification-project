@@ -12,6 +12,14 @@ using TenExCards.Generation;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Debug-only, Development-only browser-test seam. Outside Debug this is a const false and the
+// compiler removes every branch below, so the harness cannot exist in the deployed binary.
+#if DEBUG
+var e2e = TenExCards.Testing.E2EHarness.UseE2EHarness(builder);
+#else
+const bool e2e = false;
+#endif
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -20,28 +28,31 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-// Deployed, this resolves an App Service setting holding a Key Vault reference; locally it comes
-// from user-secrets, pointing at the DEVELOPMENT database. It is never in appsettings*.json.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException(
-        "ConnectionStrings:DefaultConnection is not configured. Locally, set it with " +
-        "`dotnet user-secrets set` (see TenExCards/AGENTS.md); deployed, it arrives as the app " +
-        "setting ConnectionStrings__DefaultConnection resolving a Key Vault reference. Failing " +
-        "here is deliberate: a null connection string would otherwise surface as an opaque " +
-        "provider error during the startup migration below.");
+if (!e2e)
+{
+    // Deployed, this resolves an App Service setting holding a Key Vault reference; locally it comes
+    // from user-secrets, pointing at the DEVELOPMENT database. It is never in appsettings*.json.
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection is not configured. Locally, set it with " +
+            "`dotnet user-secrets set` (see TenExCards/AGENTS.md); deployed, it arrives as the app " +
+            "setting ConnectionStrings__DefaultConnection resolving a Key Vault reference. Failing " +
+            "here is deliberate: a null connection string would otherwise surface as an opaque " +
+            "provider error during the startup migration below.");
 
-// BOTH registrations are required, and this is not stylistic.
-//
-// AddDbContextFactory<AppDbContext> does NOT also register AppDbContext itself, and
-// PersistKeysToDbContext<AppDbContext> resolves the context from a service scope with
-// GetRequiredService — not from the factory. A factory-only registration compiles, starts, and
-// then throws the first time anything protects data, which with UseAntiforgery() in the pipeline
-// is the first rendered form.
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
+    // BOTH registrations are required, and this is not stylistic.
+    //
+    // AddDbContextFactory<AppDbContext> does NOT also register AppDbContext itself, and
+    // PersistKeysToDbContext<AppDbContext> resolves the context from a service scope with
+    // GetRequiredService — not from the factory. A factory-only registration compiles, starts, and
+    // then throws the first time anything protects data, which with UseAntiforgery() in the pipeline
+    // is the first rendered form.
+    builder.Services.AddDbContextFactory<AppDbContext>(options =>
+        options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
 
-builder.Services.AddScoped(sp =>
-    sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+    builder.Services.AddScoped(sp =>
+        sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+}
 
 builder.Services.AddScoped<ICardStore, CardStore>();
 
@@ -61,25 +72,28 @@ builder.Services.AddOptions<GenerationOptions>()
 builder.Services.Configure<GeminiOptions>(
     builder.Configuration.GetSection(GeminiOptions.SectionName));
 
-// Unconditional, unlike the key-identifier guard below: a development machine does need a real API
-// key to generate anything. Read eagerly so the throw names the setting at boot.
-_ = builder.Configuration["Gemini:ApiKey"]
-    ?? throw new InvalidOperationException(
-        "Gemini:ApiKey is not configured. Locally it comes from user-secrets; deployed it arrives "
-        + "as the app setting Gemini__ApiKey resolving the gemini-api-key Key Vault reference, "
-        + "which must be set and Resolved BEFORE the build that reads it is merged.");
-
-// Eager, because the generator is a singleton and would otherwise fail at the first submission
-// rather than at boot.
-if (builder.Configuration.GetSection("Gemini:Models").Get<string[]>() is not { Length: > 0 })
+if (!e2e)
 {
-    throw new InvalidOperationException(
-        "Gemini:Models is empty. It is the ordered model rotation, best quality first; each entry "
-        + "has its own free-tier daily quota and the generator falls through on HTTP 429.");
-}
+    // Unconditional, unlike the key-identifier guard below: a development machine does need a real API
+    // key to generate anything. Read eagerly so the throw names the setting at boot.
+    _ = builder.Configuration["Gemini:ApiKey"]
+        ?? throw new InvalidOperationException(
+            "Gemini:ApiKey is not configured. Locally it comes from user-secrets; deployed it arrives "
+            + "as the app setting Gemini__ApiKey resolving the gemini-api-key Key Vault reference, "
+            + "which must be set and Resolved BEFORE the build that reads it is merged.");
 
-// Singleton: it holds a thread-safe OpenAIClient and keeps no per-request state.
-builder.Services.AddSingleton<ICardCandidateGenerator, GeminiCardCandidateGenerator>();
+    // Eager, because the generator is a singleton and would otherwise fail at the first submission
+    // rather than at boot.
+    if (builder.Configuration.GetSection("Gemini:Models").Get<string[]>() is not { Length: > 0 })
+    {
+        throw new InvalidOperationException(
+            "Gemini:Models is empty. It is the ordered model rotation, best quality first; each entry "
+            + "has its own free-tier daily quota and the generator falls through on HTTP 429.");
+    }
+
+    // Singleton: it holds a thread-safe OpenAIClient and keeps no per-request state.
+    builder.Services.AddSingleton<ICardCandidateGenerator, GeminiCardCandidateGenerator>();
+}
 
 // The cookie scheme is the default; there is no external login, so no DefaultSignInScheme override
 // is needed for it. AddIdentityCookies() registers the handler LoginPath below configures.
@@ -186,7 +200,9 @@ var app = builder.Build();
 // ConfigureTestServices has already swapped in the EF in-memory provider; GetPendingMigrationsAsync
 // throws against that provider. A missing setting must never silently skip a real migration, so the
 // default is "run it" and only the test factory sets Testing:SkipStartupMigration to true.
-if (!builder.Configuration.GetValue<bool>("Testing:SkipStartupMigration"))
+// The E2E harness is an ADDITIONAL reason to skip — it never changes Testing:SkipStartupMigration's
+// "run it" default, which is what stops a missing setting silently skipping a real migration.
+if (!e2e && !builder.Configuration.GetValue<bool>("Testing:SkipStartupMigration"))
 {
     using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
