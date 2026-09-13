@@ -12,6 +12,15 @@ Paths here are written from the **repo root**, as in `TenExCards/AGENTS.md`.
 assertion in that file. `TenExCards.Tests` is the gate; it is named there by path, so it cannot
 pick this project up.
 
+**A red run here does not show up as a red step.** `continue-on-error: true` sets the step's
+*conclusion* to `success` even when the command exits non-zero, so `gh run view --json jobs` and the
+web step list both report green. Verified 2026-09-13 by deliberately breaking the summary assertion:
+the run, the step list and every step read `success`, while the step's own log carried
+`Failed: 1, Passed: 4` and `##[error]Process completed with exit code 1`. To find out whether this
+suite actually passed, read the step's **log** or its `##[error]` annotation — never its conclusion.
+This is the one place in the repository where `TenExCards/AGENTS.md`'s "read the step list, not the
+colour" is not enough.
+
 The reason is trade, not doubt: a browser suite fails for reasons that have nothing to do with the
 change under deploy, and blocking production on that is not worth it until this suite has a track
 record. **What would have to be true to change it**: a run of stable green across many merges, with
@@ -35,7 +44,8 @@ pwsh TenExCards/TenExCards.E2E/bin/Debug/net10.0/playwright.ps1 install chromium
 dotnet test TenExCards/TenExCards.E2E/TenExCards.E2E.csproj
 ```
 
-Set `E2E_HEADED=1` to watch it run rather than guess what it did.
+Set `E2E_HEADED=1` to watch it run rather than guess what it did, and `E2E_VIDEO_DIR=<path>` to
+record it — a `.webm` per test — when nobody can sit and watch at the moment it runs.
 
 `AppUnderTest` spawns the application itself on `http://127.0.0.1:5199` and kills the process tree
 afterwards. It sets four environment variables and **`ASPNETCORE_ENVIRONMENT=Development` is not

@@ -38,7 +38,17 @@ public class LearnerJourneyTests(AppUnderTest app) : IClassFixture<AppUnderTest>
 
     private async Task<IPage> RegisterAndSignInAsync()
     {
-        var context = await _browser.NewContextAsync(new() { BaseURL = AppUnderTest.BaseUrl });
+        var options = new BrowserNewContextOptions { BaseURL = AppUnderTest.BaseUrl };
+
+        // E2E_VIDEO_DIR records the run, so "watch it at least once" does not need anyone sitting
+        // in front of it at the moment it runs.
+        var videoDir = Environment.GetEnvironmentVariable("E2E_VIDEO_DIR");
+        if (!string.IsNullOrWhiteSpace(videoDir))
+        {
+            options.RecordVideoDir = videoDir;
+        }
+
+        var context = await _browser.NewContextAsync(options);
         var page = await context.NewPageAsync();
 
         await page.GotoAsync("/Account/Register");
@@ -120,8 +130,7 @@ public class LearnerJourneyTests(AppUnderTest app) : IClassFixture<AppUnderTest>
         // Three: accepted untouched.
         await Action(page, Keep).ClickAsync();
 
-        // TEMPORARY deliberate break — S-03 criterion 3.8, reverted in the next commit.
-        await page.GetByText("Saved 99 cards, discarded 99.").WaitForAsync(new() { Timeout = 20_000 });
+        await page.GetByText("Saved 2 cards, discarded 1.").WaitForAsync(new() { Timeout = 20_000 });
     }
 
     [Fact]

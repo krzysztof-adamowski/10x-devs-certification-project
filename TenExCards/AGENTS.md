@@ -195,9 +195,8 @@ how to tell a false positive from a real one. A fact goes in one or the other, n
   DEBUG` around `Testing/E2EHarness.cs` and `Generation/ScriptedCardCandidateGenerator.cs`, and
   `Condition="'$(Configuration)' == 'Debug'"` on the `Microsoft.EntityFrameworkCore.InMemory`
   package reference. Remove either and a test provider ships to production with nothing reporting
-  it. The harness also requires `IsDevelopment()`, so the flag alone does nothing deployed. Verify
-  by byte-searching the published assembly **with a control name that must be found** — `strings`
-  returned zero for a type that *is* present, which is indistinguishable from a real absence.
+  it. **How to verify the absence, and why `strings` is the wrong tool for it, is in
+  `TenExCards.E2E/AGENTS.md`** — do not restate it here.
 - **Never run `az webapp up`.** It is deprecated. Deploy with
   `az webapp deploy --src-path <zip> --type zip`.
 - **Never upload an archive `scripts/pack.py` has not passed.** Build it with that script — it packs
