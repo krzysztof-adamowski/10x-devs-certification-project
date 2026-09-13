@@ -680,7 +680,7 @@ captured at the time and recorded in the runbook.
 - [x] 1.5 Generated migration declares exactly one `nvarchar` column (`OwnerId`) — 8e0f65b
 - [x] 1.6 Migration applies cleanly to `sqldb-tenexcards-dev` — 8e0f65b
 - [x] 1.7 `TriageBatches` exists in the dev database with the expected columns and `OwnerId` index — 8e0f65b
-- [ ] 1.8 Production startup log names `AddTriageBatches` as the one applied migration, read from a
+- [x] 1.8 Production startup log names `AddTriageBatches` as the one applied migration, read from a
       fresh `Application started` line
 
 ### Phase 2: Wire the triage path
@@ -717,13 +717,13 @@ captured at the time and recorded in the runbook.
 
 #### Automated
 
-- [ ] 4.1 `main` run green through `Verify`, with `Test` passing before `Publish`
-- [ ] 4.2 `scripts/verify_deploy.py` passes in the run
-- [ ] 4.3 Startup log reports no pending migrations (applied at Phase 1 — zero is correct here)
+- [x] 4.1 `main` run green through `Verify`, with `Test` passing before `Publish`
+- [x] 4.2 `scripts/verify_deploy.py` passes in the run
+- [x] 4.3 Startup log reports no pending migrations (applied at Phase 1 — zero is correct here)
 
 #### Manual
 
-- [ ] 4.4 Fresh `Application started` line timestamped after the deploy
+- [x] 4.4 Fresh `Application started` line timestamped after the deploy
 - [ ] 4.5 A live triaged batch produces exactly one matching `TriageBatches` row
 - [ ] 4.6 Three rates read from `sqldb-tenexcards` and recorded here with the date
 - [ ] 4.7 Live row carries no text beyond `OwnerId`, with a `Cards` read as the control
