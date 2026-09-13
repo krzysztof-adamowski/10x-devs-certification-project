@@ -86,18 +86,21 @@ public sealed class AppUnderTest : IAsyncLifetime
     /// </summary>
     private static async Task RefuseIfAlreadyServingAsync()
     {
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        // A TCP connect, not an HTTP GET. An HTTP probe cannot tell "nothing is there" from "a
+        // leftover process is alive but slow to answer" — both present as a timeout — so it must
+        // either miss the case it exists for or refuse to run when the port is free. Binding is
+        // the thing that actually collides, and a successful connect is the unambiguous signal.
+        var uri = new Uri(BaseUrl);
+        using var probe = new System.Net.Sockets.TcpClient();
 
         try
         {
-            await client.GetAsync(BaseUrl);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await probe.ConnectAsync(uri.Host, uri.Port, timeout.Token);
         }
-        catch (HttpRequestException)
+        catch (Exception)
         {
-            return;
-        }
-        catch (TaskCanceledException)
-        {
+            // Refused, unreachable or no answer: nothing holds the port.
             return;
         }
 

@@ -53,6 +53,20 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
         return client;
     }
 
+    /// <summary>
+    /// The &lt;article&gt; the layout renders the page into. NavMenu sits outside it and links to
+    /// both "cards" and "generate" on every page, so a whole-document assertion proves nothing
+    /// about the page under test.
+    /// </summary>
+    private static string Content(string html)
+    {
+        var start = html.IndexOf("<article", StringComparison.Ordinal);
+        start.Should().BeGreaterThan(-1, "the layout renders an <article> element");
+        var end = html.IndexOf("</article>", start, StringComparison.Ordinal);
+        end.Should().BeGreaterThan(-1, "the <article> element is closed");
+        return html[start..end];
+    }
+
     private int MaxResults
     {
         get
@@ -70,7 +84,7 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
         var html = await client.GetStringAsync("/cards");
 
         html.Should().Contain("You have no saved cards yet");
-        html.Should().Contain("generate");
+        Content(html).Should().Contain("href=\"generate\"", "the empty state points at generation");
     }
 
     [Fact]
@@ -84,7 +98,7 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
         // The honesty requirement: a learner with more cards than fit must not read this as
         // their whole collection.
         html.Should().Contain("most recent cards");
-        html.Should().Contain("Search to reach the rest");
+        html.Should().Contain("Search to find others");
         html.Should().NotContain("You have no saved cards yet");
     }
 
@@ -95,7 +109,9 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
 
         var html = await client.GetStringAsync("/");
 
-        html.Should().Contain("href=\"cards\"", "a signed-in learner reaches their cards from home");
+        // Scoped to <article>: NavMenu renders href="cards" on EVERY page, so an unscoped
+        // assertion survives deleting the Home link it claims to test.
+        Content(html).Should().Contain("href=\"cards\"", "a signed-in learner reaches their cards from home");
     }
 
     [Fact]
@@ -106,6 +122,6 @@ public class SavedCardsPageTests(TenExCardsWebApplicationFactory factory)
         var html = await client.GetStringAsync("/cards");
 
         html.Should().Contain("Seeded prompt 0?");
-        html.Should().NotContain("Search to reach the rest");
+        html.Should().NotContain("Search to find others");
     }
 }

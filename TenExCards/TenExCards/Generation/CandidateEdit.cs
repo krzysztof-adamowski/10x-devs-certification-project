@@ -1,3 +1,5 @@
+using TenExCards.Cards;
+
 namespace TenExCards.Generation;
 
 /// <summary>
@@ -15,10 +17,12 @@ public static class CandidateEdit
         !string.Equals(original.Prompt.Trim(), prompt.Trim(), StringComparison.Ordinal)
         || !string.Equals(original.Answer.Trim(), answer.Trim(), StringComparison.Ordinal);
 
-    /// <summary>The single predicate the disabled attribute and the click handler both consult, so
-    /// they cannot drift.</summary>
+    /// <summary>
+    /// The single predicate the disabled attribute and the click handler both consult, so they
+    /// cannot drift. Delegates to <see cref="CardEdit"/> so the decision and the refusal message
+    /// the handler renders come from one rule — they were two, and disagreed on trimming, which
+    /// would have surfaced as a refusal with no message.
+    /// </summary>
     public static bool IsCommittable(string prompt, string answer) =>
-        !string.IsNullOrWhiteSpace(prompt)
-        && !string.IsNullOrWhiteSpace(answer)
-        && CandidateBounds.IsWithinColumnLimits(prompt, answer);
+        CardEdit.Validate(prompt, answer).IsValid;
 }

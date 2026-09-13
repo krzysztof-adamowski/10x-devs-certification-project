@@ -624,14 +624,14 @@ Service app-setting change. No Key Vault secret and no app setting is added, cha
 
 #### Automated
 
-- [x] 3.1 Solution builds
-- [x] 3.2 Tests pass
-- [x] 3.3 The staged diff immediately before the commit contains only this change's paths
+- [x] 3.1 Solution builds — b05ed85
+- [x] 3.2 Tests pass — b05ed85
+- [x] 3.3 The staged diff immediately before the commit contains only this change's paths — b05ed85
 
 #### Manual
 
-- [x] 3.4 Nav link, Home link and the triage-summary link all reach `/cards`
-- [x] 3.5 `AGENTS.md` reads correctly; the two-`AllowAnonymous` count is still true; no fact duplicated in `deploy-plan.md`
+- [x] 3.4 Nav link, Home link and the triage-summary link all reach `/cards` — b05ed85
+- [x] 3.5 `AGENTS.md` reads correctly; the two-`AllowAnonymous` count is still true; no fact duplicated in `deploy-plan.md` — b05ed85
 
 ### Phase 4: Deploy and verify on the live instance
 

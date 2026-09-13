@@ -72,6 +72,30 @@ public class CardEditTests
         result.Answer.Should().Be("An answer.");
     }
 
+    [Theory]
+    [InlineData("A prompt?", "An answer.")]
+    [InlineData("  A prompt?  ", "  An answer.  ")]
+    [InlineData("", "An answer.")]
+    [InlineData("   ", "An answer.")]
+    [InlineData("A prompt?", "   ")]
+    public void IsCommittable_AgreesWithValidate_IncludingOnUntrimmedInput(string prompt, string answer)
+    {
+        // The triage handler branches on IsCommittable and renders Validate's message. When those
+        // were two rules they disagreed on trimming, and a refusal could carry a null message.
+        Generation.CandidateEdit.IsCommittable(prompt, answer)
+            .Should().Be(CardEdit.Validate(prompt, answer).IsValid);
+    }
+
+    [Fact]
+    public void IsCommittable_AtTheLimitPlusTrailingWhitespace_AgreesWithValidate()
+    {
+        // The case that used to diverge: untrimmed length is over, trimmed length is not.
+        var prompt = OfLength(CardBounds.MaxPromptCharacters) + "   ";
+
+        Generation.CandidateEdit.IsCommittable(prompt, "An answer.").Should().BeTrue();
+        CardEdit.Validate(prompt, "An answer.").IsValid.Should().BeTrue();
+    }
+
     [Fact]
     public void Validate_AtTheLimitPlusTrailingWhitespace_IsAccepted()
     {

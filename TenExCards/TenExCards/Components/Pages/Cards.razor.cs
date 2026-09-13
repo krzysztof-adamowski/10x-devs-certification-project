@@ -58,21 +58,25 @@ public partial class Cards : IDisposable
         var cts = new CancellationTokenSource();
         var previous = _searchCts;
         _searchCts = cts;
+
+        // BEFORE the await, not after: CancelAsync yields, so a newer keystroke can run to
+        // completion during the suspension. Assigning here also means the first render a handler
+        // produces already shows the loading state — Blazor renders at the first yielding await.
+        _loading = true;
+        _loadError = null;
+
         // Not disposed here: the superseded call is still unwinding and reads its own token.
         if (previous is not null)
         {
             await previous.CancelAsync();
         }
 
-        _loading = true;
-        _loadError = null;
-
         try
         {
             var found = await Store.FindForOwnerAsync(_ownerId!, _term, Options.MaxResults, cts.Token);
 
             // The token fired while this was in flight: a newer search owns the results now.
-            if (cts.IsCancellationRequested)
+            if (!IsCurrent(cts))
             {
                 return;
             }
@@ -86,18 +90,27 @@ public partial class Cards : IDisposable
         catch (Exception)
         {
             // Never let this reach the circuit: an unhandled exception in a handler is the generic
-            // Blazor error UI, which is the never-blocks-blind guardrail failing.
+            // Blazor error UI, which is the never-blocks-blind guardrail failing. Guarded like the
+            // success path — a superseded failure must not blank results a newer search delivered.
+            if (!IsCurrent(cts))
+            {
+                return;
+            }
+
             _loadError = "Your cards could not be loaded just now. Try again.";
             _results = [];
         }
         finally
         {
-            if (ReferenceEquals(_searchCts, cts))
+            if (IsCurrent(cts))
             {
                 _loading = false;
             }
         }
     }
+
+    /// <summary>Whether this search is still the one the page is waiting on.</summary>
+    private bool IsCurrent(CancellationTokenSource cts) => ReferenceEquals(_searchCts, cts);
 
     private void BeginEdit(Card card)
     {
@@ -178,7 +191,10 @@ public partial class Cards : IDisposable
 
     private async Task ConfirmDeleteAsync(Guid id)
     {
-        if (_busy)
+        // The arming check is re-made here, not left to the render tree. Deletion is irreversible,
+        // and "the button is only rendered when armed" is the same kind of guard as a disabled
+        // attribute — it is not one.
+        if (_busy || _confirmingDeleteId != id)
         {
             return;
         }
@@ -205,6 +221,10 @@ public partial class Cards : IDisposable
 
     public void Dispose()
     {
+        // Cancel before dispose: the token may still be registered in the EF/SqlClient pipeline, so
+        // disposing alone leaves the query running past the circuit and can surface an
+        // ObjectDisposedException from inside the provider.
+        _searchCts?.Cancel();
         _searchCts?.Dispose();
         GC.SuppressFinalize(this);
     }

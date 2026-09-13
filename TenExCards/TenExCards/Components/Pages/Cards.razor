@@ -120,8 +120,11 @@ else
 
     @if (!Searching && _results.Count == Options.MaxResults)
     {
+        @* Worded to be true whether or not more cards exist: at exactly the cap there is no "rest",
+           and the requirement is only that @Options.MaxResults rows must not read as the whole
+           collection. Detecting overflow would cost a limit+1 query for a sentence. *@
         <p class="text-muted">
-            These are your @Options.MaxResults most recent cards. Search to reach the rest.
+            Showing your @Options.MaxResults most recent cards. Search to find others.
         </p>
     }
 }
