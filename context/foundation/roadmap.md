@@ -534,3 +534,5 @@ first milestone. Closure entries are written when a milestone closes.)
   is worked on, review the resulting candidates one at a time, and accept or reject each — with every
   accepted card saved immediately to their own space.** —
   Archived 2026-09-13 → `context/archive/2026-09-12-passage-to-saved-cards/`. Lesson: —.
+- **S-03: user can correct a candidate's wording and then accept the corrected version.** —
+  Archived 2026-09-13 → `context/archive/2026-09-13-edit-before-accepting/`. Lesson: —.
