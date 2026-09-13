@@ -26,6 +26,7 @@ public partial class Generate : IAsyncDisposable
 
     [Inject] private ICardCandidateGenerator Generator { get; set; } = default!;
     [Inject] private ICardStore Store { get; set; } = default!;
+    [Inject] private ITriageRecorder Recorder { get; set; } = default!;
     [Inject] private IOptions<GenerationOptions> GenerationOptions { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -41,6 +42,8 @@ public partial class Generate : IAsyncDisposable
     private string? _ownerId;
 
     private TriageSession? _session;
+    // null when the open failed; the record calls then no-op. Triage never depends on it.
+    private Guid? _batchId;
     private string? _saveError;
 
     private bool _editing;
@@ -183,6 +186,11 @@ public partial class Generate : IAsyncDisposable
             _passage = string.Empty;
             _focusHint = string.Empty;
 
+            // Below the clearing, never above: an await here would render with the passage and its
+            // candidates both alive in the circuit.
+            _batchId = await Recorder.OpenBatchAsync(
+                _ownerId!, _session.BatchSize, CancellationToken.None);
+
             _stage = Stage.Triaging;
             await SetUnloadWarningAsync(true);
         }
@@ -246,6 +254,7 @@ public partial class Generate : IAsyncDisposable
             }
 
             _session!.Accept(edited);
+            await Recorder.RecordAcceptAsync(_ownerId!, _batchId, edited, CancellationToken.None);
             await AdvanceAsync();
         }
         finally
@@ -265,6 +274,7 @@ public partial class Generate : IAsyncDisposable
         {
             _saveError = null;
             _session!.Reject();
+            await Recorder.RecordRejectAsync(_ownerId!, _batchId, CancellationToken.None);
             await AdvanceAsync();
         }
         finally

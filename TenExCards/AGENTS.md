@@ -549,6 +549,48 @@ restart — treat the first non-`Resolved` reading as expected, restart, and rea
 or a valid tenant level resource provider`. ARM is fine; use `az rest` against
 `providers/Microsoft.Authorization/roleAssignments`. Do not read this as a permissions problem.
 
+### Reading the outcome rates
+
+`S-06` (`outcome-recording`) made `FR-013` answerable. The rates are **recorded, not displayed**:
+there is no page, no role and no operator view, so reading them is a query you run by hand.
+`scripts/outcome_rates.sql` is that query, and it is read-only.
+
+```powershell
+$env:SQLCMDPASSWORD = az keyvault secret show --vault-name kv-tenexcards-plc `
+    --name sql-admin-password --query value -o tsv
+sqlcmd -S sql-tenexcards-plc.database.windows.net -d sqldb-tenexcards -U tenexadmin `
+    -i scripts/outcome_rates.sql
+$env:SQLCMDPASSWORD = $null
+```
+
+The password goes through `SQLCMDPASSWORD`, never through `-P`: PowerShell 5.1 appends every command
+line to `ConsoleHost_history.txt` indefinitely. Prerequisite: the `dev-machine-krzychu` firewall rule
+must be current for wherever you are sitting — it is deliberately not in `infra/main.bicep`.
+
+**Two tables, deliberately, and collapsing them onto one gives a wrong answer.** The acceptance rate
+and the edit rate read `TriageBatches`, which card deletion cannot touch, because the PRD asks about
+cards *"edited before saving"* — a moment, not a surviving row. The AI-origin share reads `Cards` and
+*is* sensitive to deletion, because that criterion asks about *"the cards in a learner's space"*.
+Reading the edit rate from `Cards` would let ordinary tidying improve it.
+
+**Three readings that look like breakage and are not** — the script states all three, and this is the
+short form:
+
+- **`NULL` on an empty table** means "no batches yet", not a failed query.
+- **Every rate undercounts under fault.** `ITriageRecorder` swallows its write failures by design, so
+  that measurement can never cost a learner a card. These are floors.
+- **`Untriaged` pools three things** and only the first is card-quality signal: candidates the learner
+  never reached, a batch open at the moment of the query, and accepts whose record write was
+  swallowed — and a swallowed *reject* lands there too, though it moves no rate. The script's
+  second result set — settled batches, older than 30 minutes — removes the
+  second. Nothing removes the third. **Compare the two acceptance figures before reading a low one as
+  a card-quality failure**: abandonment here is one click, because the nav menu renders throughout
+  triage and enhanced navigation never fires `beforeunload`.
+
+**There is no backfill.** The epoch is the deploy that first carried the `AddTriageBatches` migration;
+cards created before it have `Origin` and `Edited` but belong to no batch, so no rejection count
+exists for them. Seeding synthetic rows would invent numbers nobody observed.
+
 ### Scaling past one worker
 
 **ARR session affinity** (`clientAffinityEnabled`, on by default and declared in
