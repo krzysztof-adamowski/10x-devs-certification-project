@@ -147,6 +147,19 @@ Product:
   plus its candidates there until triage ends. B1 gives 1.75 GB total and there is no
   back-pressure: the ceiling arrives as OOM restarts that look like random disconnects, and every
   restart drops every circuit. Enforce the passage-length bound *before* generation begins.
+- **Never make the card length bounds configurable.** They are `const int` on
+  `Data/CardBounds.cs` — 500 and 1,000 — and the reflex to "extract them to options" is the wrong
+  one, which is why this bullet exists rather than a comment. The values are compiled into
+  `AddCards`' `HasMaxLength` and applied as `nvarchar(500)` / `nvarchar(1000)` in
+  `sqldb-tenexcards`, so a setting cannot widen the column; it widens only the *gate in front of*
+  it, and the over-long card then throws at `SaveAsync` — a failure the learner sees and cannot fix.
+  Three readers: `AppDbContext`'s `HasMaxLength`, `CandidateBounds`, and the response schema in
+  `GeminiCardCandidateGenerator`. `const` is also load-bearing downstream — `[MaxLength(...)]`
+  attributes take a compile-time constant. **Changing a bound means a migration.**
+  `CandidateBoundsTests` pins the constants against the literal widths `AddCards` wrote, *not*
+  against `CardBounds` itself: an assertion whose expected value reads the constant under test is a
+  tautology, and the EF in-memory provider ignores `HasMaxLength`, so nothing else would catch a
+  drift.
 - **Never use FluentAssertions.** Assertions use AwesomeAssertions; see
   `TenExCards.Tests/AGENTS.md`.
 

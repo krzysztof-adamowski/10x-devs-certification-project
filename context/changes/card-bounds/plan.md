@@ -370,16 +370,16 @@ against `sqldb-tenexcards-dev` beyond the ordinary local run.
 
 #### Automated
 
-- [x] 1.1 Solution builds
-- [x] 1.2 Tests pass
-- [x] 1.3 `has-pending-model-changes` reports none
-- [x] 1.4 `grep` finds no `GenerationOptions` property and no `appsettings.json` key for either bound
-- [x] 1.5 EF-model assertion observed failing with a constant changed
+- [x] 1.1 Solution builds — 2d843df
+- [x] 1.2 Tests pass — 2d843df
+- [x] 1.3 `has-pending-model-changes` reports none — 2d843df
+- [x] 1.4 `grep` finds no `GenerationOptions` property and no `appsettings.json` key for either bound — 2d843df
+- [x] 1.5 EF-model assertion observed failing with a constant changed — 2d843df
 
 #### Manual
 
-- [x] 1.6 Local generation and accept still work against `sqldb-tenexcards-dev`
-- [x] 1.7 The outgoing Gemini request still carries both `maxLength` values
+- [x] 1.6 Local generation and accept still work against `sqldb-tenexcards-dev` — 2d843df
+- [x] 1.7 The outgoing Gemini request still carries both `maxLength` values — 2d843df
 
 ### Phase 2: Deploy, verify, and record
 
