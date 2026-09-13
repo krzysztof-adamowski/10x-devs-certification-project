@@ -24,6 +24,7 @@ Usage (from the repo root, on Windows or Linux, identically):
     python scripts/verify_deploy.py
     python scripts/verify_deploy.py --base-url https://example.azurewebsites.net
     python scripts/verify_deploy.py --warmup-seconds 180
+    python scripts/verify_deploy.py --self-test    # no network; proves the checks can fail
 """
 
 import argparse
@@ -218,6 +219,75 @@ def normalise_base(base_url):
     return base_url if split.path else base_url + "/"
 
 
+# Each case is (name, expected_rejection_is_none, callable). The two acceptance cases
+# are not padding: they are the controls. A rejection-only self-test would stay green
+# while a future tightening broke the httpsOnly scheme upgrade or rejected every asset.
+SELF_TEST_CASES = [
+    # redirect_rejection -- accepts
+    ("root: no redirect",
+     True, lambda: redirect_rejection("https://h/", "https://h/")),
+    ("root: http->https upgrade, same path (httpsOnly working)",
+     True, lambda: redirect_rejection("http://h/", "https://h/")),
+    ("root: query added, same path",
+     True, lambda: redirect_rejection("https://h/", "https://h/?x=1")),
+    # redirect_rejection -- rejects
+    ("root: redirected to sign-in on the same host",
+     False, lambda: redirect_rejection("https://h/", "https://h/Account/Login?ReturnUrl=%2F")),
+    ("root: redirected to a different host",
+     False, lambda: redirect_rejection("https://h/", "https://other/")),
+    ("root: https->http downgrade to another path",
+     False, lambda: redirect_rejection("https://h/", "http://h/elsewhere")),
+    # asset_rejection -- accepts
+    ("asset: text/css", True, lambda: asset_rejection("text/css")),
+    ("asset: text/javascript", True, lambda: asset_rejection("text/javascript")),
+    ("asset: application/javascript", True, lambda: asset_rejection("application/javascript")),
+    # asset_rejection -- rejects
+    ("asset: text/html (the sign-in page served as a stylesheet)",
+     False, lambda: asset_rejection("text/html")),
+    ("asset: no Content-Type at all", False, lambda: asset_rejection(None)),
+]
+
+
+def self_test():
+    """Prove this script's decisions can fail, without a network or a deploy.
+
+    Neither deploy script had any test, and deploy.yml triggers only on push to main --
+    so a syntax error or a weakened assertion was first observed ON main, mid-deploy.
+    This runs before the gating test step, so it stops the job before anything ships.
+
+    lessons.md, "A negative check needs a control, or it cannot fail": the acceptance
+    cases above are that control.
+    """
+    print("self-test: %d case(s)" % len(SELF_TEST_CASES))
+    failures = []
+    for name, should_accept, decide in SELF_TEST_CASES:
+        try:
+            rejection = decide()
+        except Exception as exc:  # a predicate that throws is a broken predicate
+            failures.append("%s -- raised %s: %s" % (name, type(exc).__name__, exc))
+            print("  [RAISE] %s" % name)
+            continue
+        accepted = rejection is None
+        if accepted == should_accept:
+            print("  [ ok ] %-8s %s" % ("accept" if accepted else "reject", name))
+        else:
+            failures.append(
+                "%s -- expected %s, got %s"
+                % (name, "accept" if should_accept else "reject",
+                   "accept" if accepted else "reject: %s" % rejection))
+            print("  [FAIL] %s" % name)
+
+    print("")
+    if failures:
+        sys.stdout.flush()
+        print("SELF-TEST FAILED", file=sys.stderr)
+        for failure in failures:
+            print("  %s" % failure, file=sys.stderr)
+        return 1
+    print("SELF-TEST PASSED -- every decision accepted and rejected what it must.")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
@@ -242,7 +312,15 @@ def main(argv=None):
         default=DEFAULT_TIMEOUT,
         help="per-request timeout in seconds (default: %(default)s)",
     )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="check this script's own decisions against synthetic inputs and exit",
+    )
     args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
 
     base = normalise_base(args.base_url)
 

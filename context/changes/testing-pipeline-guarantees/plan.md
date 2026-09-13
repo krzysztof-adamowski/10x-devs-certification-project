@@ -727,28 +727,28 @@ and every edit is reverted before the phase closes.
 
 #### Automated
 
-- [x] 3.1 `verify_deploy.py --help` runs without error
-- [x] 3.2 `py_compile` succeeds on `verify_deploy.py`
-- [x] 3.3 `verify_deploy.py` passes against the live site
+- [x] 3.1 `verify_deploy.py --help` runs without error — 1156b36
+- [x] 3.2 `py_compile` succeeds on `verify_deploy.py` — 1156b36
+- [x] 3.3 `verify_deploy.py` passes against the live site — 1156b36
 
 #### Manual
 
-- [x] 3.4 Each asset logs its media type
-- [x] 3.5 The `http→https` scheme upgrade is logged, not failed
-- [x] 3.6 The HSTS assertion reads a real header
+- [x] 3.4 Each asset logs its media type — 1156b36
+- [x] 3.5 The `http→https` scheme upgrade is logged, not failed — 1156b36
+- [x] 3.6 The HSTS assertion reads a real header — 1156b36
 
 ### Phase 4: `--self-test` and its CI step
 
 #### Automated
 
-- [ ] 4.1 `verify_deploy.py --self-test` exits `0`
-- [ ] 4.2 `py_compile` succeeds on both scripts
-- [ ] 4.3 The suite still passes
+- [x] 4.1 `verify_deploy.py --self-test` exits `0`
+- [x] 4.2 `py_compile` succeeds on both scripts
+- [x] 4.3 The suite still passes
 
 #### Manual
 
-- [ ] 4.4 Each self-test case observed failing under an inverted predicate; reverted
-- [ ] 4.5 The scheme-upgrade acceptance case fails if all same-host redirects are rejected
+- [x] 4.4 Each self-test case observed failing under an inverted predicate; reverted
+- [x] 4.5 The scheme-upgrade acceptance case fails if all same-host redirects are rejected
 
 ### Phase 5: Prove every new gate can fail
 

@@ -7,3 +7,5 @@ Personal
 infra/*.parameters.json
 infra/*.parameters.local.json
 .claude/settings.json
+# Byproduct of the py_compile syntax check on scripts/ (see .github/workflows/deploy.yml)
+__pycache__/
