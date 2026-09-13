@@ -75,13 +75,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Gates the gate, and sits FIRST because it is the cheapest step in the job.
-      # Both deploy scripts are consumed later by Pack and Verify, and this workflow
-      # triggers only on push to main -- so before this step existed, a syntax error in
-      # either was first observed on main, mid-deploy. --self-test additionally proves
-      # verify_deploy.py's redirect and content-type decisions can still reject what they
-      # must AND accept what they must; the acceptance cases are the control that stops a
-      # future tightening from silently breaking the httpsOnly scheme upgrade.
+      # Before anything expensive, because both deploy scripts are consumed later by Pack
+      # and Verify and this workflow triggers only on push to main -- so before this step
+      # existed, a syntax error in either was first observed on main, mid-deploy.
+      # --self-test covers verify_deploy.py's EXTRACTED PREDICATES only, not fetch() or
+      # main(); it cannot catch a signature refactor. Its acceptance cases are the control
+      # that stops a future tightening from breaking the httpsOnly scheme upgrade.
       - name: Verify the deploy scripts
         run: |
           python3 -m py_compile scripts/pack.py scripts/verify_deploy.py

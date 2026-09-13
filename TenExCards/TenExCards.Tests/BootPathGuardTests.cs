@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TenExCards.Data;
+using TenExCards.Generation;
 
 namespace TenExCards.Tests;
 
@@ -15,19 +17,11 @@ namespace TenExCards.Tests;
 /// deployment slot to roll back to.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Every assertion matches the guard's MESSAGE, never the exception type. Four guards throw
+/// Every assertion matches the guard's MESSAGE, never the exception type: four guards throw
 /// InvalidOperationException during service configuration, so a type-only assertion is satisfied
-/// by whichever throws first and proves nothing — the near-miss <see cref="MigrationGuardTests"/>
-/// was narrowed for.
-/// </para>
-/// <para>
-/// THIS HOST IS NEVER GIVEN DataProtection:KeyIdentifier. Measured 2026-09-14: supplying it makes
-/// the host construct DefaultAzureCredential, reach kv-tenexcards-plc and fail keys/wrap/action
-/// with ForbiddenByRbac, using the operator's own az session. Boot and GET / both still succeed,
-/// so that failure is silent to a status-code observer. The encryptor itself stays with the manual
-/// Xml-column verification in TenExCards/AGENTS.md.
-/// </para>
+/// by whichever throws first — the near-miss <see cref="MigrationGuardTests"/> was narrowed for.
+/// This host is never given DataProtection:KeyIdentifier, because supplying it reaches Key Vault
+/// with the operator's own credentials; see TenExCards.Tests/AGENTS.md.
 /// </remarks>
 public class BootPathGuardTests
 {
@@ -39,16 +33,22 @@ public class BootPathGuardTests
     /// <paramref name="omit"/>.
     /// </summary>
     /// <remarks>
-    /// Always Production, and that is load-bearing rather than incidental: WebApplication.
-    /// CreateBuilder loads user-secrets ONLY in Development, so a Development host would satisfy
-    /// every omitted setting from the developer's own secrets.json — these tests would pass in CI
-    /// and fail locally. Production also matches the shape the guards actually protect.
-    /// Environments.Development appears below only where the environment IS the variable under
-    /// test. See TenExCards.Tests/AGENTS.md, "A green local run is not a green CI run".
+    /// Production by default, so user-secrets cannot satisfy an omitted setting; Development
+    /// appears only where the environment IS the variable under test. See
+    /// TenExCards.Tests/AGENTS.md, "A green local run is not a green CI run".
     /// </remarks>
     private static WebApplicationFactory<Program> BuildHost(
         string? environment = null, params string[] omit)
     {
+        // Environment variables ARE loaded outside Development, so an ambient value here would
+        // satisfy the guard and send the host to Key Vault. Fail naming the cause instead.
+        if (Environment.GetEnvironmentVariable("DataProtection__KeyIdentifier") is not null)
+        {
+            throw new InvalidOperationException(
+                "DataProtection__KeyIdentifier is set in this process's environment; unset it "
+                + "before running these tests.");
+        }
+
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment(environment ?? Environments.Production);
@@ -84,6 +84,12 @@ public class BootPathGuardTests
                     options.UseInMemoryDatabase($"BootPathGuard-{Guid.NewGuid()}"));
                 services.AddScoped(sp =>
                     sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
+
+                // Inert for the guard tests, which throw before this runs — but the one test
+                // here that boots would otherwise hold the real Gemini client, and a later test
+                // that renders a page would spend live quota. Mirrors the shared factory.
+                services.RemoveAll<ICardCandidateGenerator>();
+                services.AddSingleton<ICardCandidateGenerator, StubCardCandidateGenerator>();
             });
         });
     }
@@ -92,7 +98,7 @@ public class BootPathGuardTests
     [InlineData("ConnectionStrings:DefaultConnection",
         "*ConnectionStrings:DefaultConnection is not configured*")]
     [InlineData("Gemini:ApiKey", "*Gemini:ApiKey is not configured*")]
-    public void MissingDemand_FailsBootNamingItself(string setting, string expectedMessage)
+    public void GuardedSetting_Missing_FailsBootNamingItself(string setting, string expectedMessage)
     {
         using var factory = BuildHost(omit: setting);
 
@@ -107,11 +113,9 @@ public class BootPathGuardTests
     [Fact]
     public void ShippedModelRotation_IsNotEmpty()
     {
-        // Gemini:Models ships in appsettings.json, so no test host can make it ABSENT — the
-        // configuration system has no deletion. The guard's real trigger is someone emptying that
-        // array, which fails the deployed boot, so the assertion is on the shipped value.
-        // Development, because this host must actually BOOT and Production demands the key
-        // identifier this class never supplies.
+        // Gemini:Models ships in appsettings.json and configuration has no deletion, so no host
+        // can make it absent — this asserts the shipped value instead. It does NOT pin the guard;
+        // see test-plan.md §7. Development because this host must actually boot.
         using var factory = BuildHost(Environments.Development);
         using var client = factory.CreateClient();
 
@@ -126,9 +130,8 @@ public class BootPathGuardTests
     [Fact]
     public void KeyIdentifier_Missing_OutsideDevelopment_FailsBoot()
     {
-        // D6 is exercised in none of the three environments: Development-skipped locally,
-        // Development-skipped in CI because TenExCardsWebApplicationFactory pins Development, and
-        // live only in the container. This is the only place it runs.
+        // D6 runs nowhere else: Development-skipped locally and in CI, live only in the
+        // container.
         using var factory = BuildHost();
 
         var act = () => _ = factory.Services;
@@ -142,9 +145,8 @@ public class BootPathGuardTests
     [Fact]
     public void KeyIdentifier_Missing_InDevelopment_BootsAnyway()
     {
-        // The control for the fact above, in the same run: one variable changed, the environment.
-        // Without it, a throw from any other cause would satisfy that assertion. See lessons.md,
-        // "A negative check needs a control, or it cannot fail".
+        // The control for the fact above: same run, one variable changed. Without it a throw
+        // from any other cause would satisfy that assertion.
         using var factory = BuildHost(Environments.Development);
 
         var act = () => _ = factory.Services;

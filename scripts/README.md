@@ -12,7 +12,7 @@ your own machine in one command.
 | Script | Answers | Exits non-zero when |
 | --- | --- | --- |
 | `pack.py` | Is this archive safe to upload? | any of four shape assertions fails |
-| `verify_deploy.py` | Did the deploy actually work? | the page or any same-origin asset is not `200` |
+| `verify_deploy.py` | Did the deploy actually work? | the root page is not `200`, lands on another path or host, or carries no working HSTS; or any same-origin asset is not `200` or arrives as `text/html` |
 
 ## Why these exist
 
@@ -57,9 +57,18 @@ assertion 1, hiding the diagnosis.
 Fetches the root page, extracts the stylesheet `href`s and script `src`s the page actually
 references, and asserts `200` for each. A green deploy command is not evidence; this is.
 
+**Status alone is not the oracle, and three assertions exist because of it.** The script follows
+redirects and sends no cookies, so a gated asset resolves `302 → sign-in → 200` and used to be
+recorded as a pass — the entire site could be gated and this printed `DEPLOY VERIFIED`. So it also
+asserts each asset's **media type** is not `text/html`; that the root landed on the **path** it
+asked for (an `http→https` upgrade on the same path is `httpsOnly` working and stays a pass, a
+downgrade does not); and that the root carries `Strict-Transport-Security` with a non-zero
+`max-age`, which is the only thing watching for `ASPNETCORE_ENVIRONMENT` being set on the live site.
+
 ```powershell
 python scripts/verify_deploy.py
 python scripts/verify_deploy.py --base-url https://tenexcards-ka.azurewebsites.net
+python scripts/verify_deploy.py --self-test
 ```
 
 | Argument | Default |
@@ -67,6 +76,11 @@ python scripts/verify_deploy.py --base-url https://tenexcards-ka.azurewebsites.n
 | `--base-url` | `https://tenexcards-ka.azurewebsites.net` |
 | `--warmup-seconds` | `120` |
 | `--timeout` | `30` |
+| `--self-test` | off — checks the three decisions above against synthetic inputs, no network |
+
+`--self-test` covers the **extracted predicates only**. It never calls `fetch()`, `fetch_root()` or
+`main()`, so it cannot catch a refactor that changes their signatures — the live run is what catches
+that. CI runs it, plus `py_compile` over both scripts, before the gating test step.
 
 Two behaviours that look like complexity and are not:
 

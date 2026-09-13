@@ -395,12 +395,14 @@ changing. Three settings there are deliberate and must not be "fixed":
 - **`permissions` is exactly `id-token: write` + `contents: read`.** `actions: read` is absent on
   purpose — see the out-of-scope list below.
 
-**`Verify the deploy scripts` runs first, and gates the gate.** It is `py_compile` over both
-scripts plus `verify_deploy.py --self-test`, placed ahead of `Test` because it is the cheapest step
-in the job: this workflow triggers only on push to `main`, so before it existed a syntax error in
-either script was first observed **on `main`, mid-deploy**. The self-test's acceptance cases are
-not padding — they are the control that stops a future tightening of the root-redirect rule from
-rejecting the `http→https` upgrade `httpsOnly` produces.
+**`Verify the deploy scripts` runs before anything expensive.** It is `py_compile` over both
+scripts plus `verify_deploy.py --self-test`, placed ahead of `Test` because this workflow triggers
+only on push to `main`, so before it existed a syntax error in either script was first observed
+**on `main`, mid-deploy**. The self-test's acceptance cases are not padding — they are the control
+that stops a future tightening of the root-redirect rule from rejecting the `http→https` upgrade
+`httpsOnly` produces. **It does not cover `fetch()`, `fetch_root()` or `main()`**, which need a
+network: a signature refactor there still surfaces first on the live `Verify the deployed site`
+step, so do not read a green self-test as the script being exercised.
 
 **A `workflow_dispatch` on a branch is the safe way to prove a step gates.** The dispatch trigger
 carries no ref restriction, while the federated credential below is exact-match on

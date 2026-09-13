@@ -28,6 +28,7 @@ Usage (from the repo root, on Windows or Linux, identically):
 """
 
 import argparse
+import re
 import sys
 import time
 from html.parser import HTMLParser
@@ -123,6 +124,10 @@ def redirect_rejection(requested, landed):
             "       every asset checked below would be that page's, not this app's."
             % landed
         )
+    # Only the upgrade direction is httpsOnly; without this the function is
+    # scheme-blind in both directions.
+    if want.scheme == "https" and got.scheme == "http":
+        return "redirected from https down to http: %s" % landed
     return None
 
 
@@ -137,6 +142,25 @@ def asset_rejection(content_type):
         return "no Content-Type header"
     if content_type == "text/html":
         return "served as text/html -- that is a page, not an asset"
+    return None
+
+
+def hsts_rejection(headers):
+    """Why the root response is not Production-shaped, or None.
+
+    The only thing watching ASPNETCORE_ENVIRONMENT: it is absent on the live site,
+    so the container runs Production by default, which is what makes UseHsts() and
+    the key-ring encryption fire. `max-age=0` is a present header that DISABLES
+    HSTS, so presence alone is not the test.
+    """
+    value = headers.get("Strict-Transport-Security") if headers else None
+    if not value:
+        return "carries no Strict-Transport-Security header"
+    match = re.search(r"max-age\s*=\s*(\d+)", value, re.IGNORECASE)
+    if not match:
+        return "sent Strict-Transport-Security with no max-age: %s" % value
+    if int(match.group(1)) == 0:
+        return "sent Strict-Transport-Security with max-age=0, which disables HSTS"
     return None
 
 
@@ -235,8 +259,10 @@ SELF_TEST_CASES = [
      False, lambda: redirect_rejection("https://h/", "https://h/Account/Login?ReturnUrl=%2F")),
     ("root: redirected to a different host",
      False, lambda: redirect_rejection("https://h/", "https://other/")),
-    ("root: https->http downgrade to another path",
-     False, lambda: redirect_rejection("https://h/", "http://h/elsewhere")),
+    ("root: redirected to another path",
+     False, lambda: redirect_rejection("https://h/", "https://h/elsewhere")),
+    ("root: https->http downgrade, same path",
+     False, lambda: redirect_rejection("https://h/", "http://h/")),
     # asset_rejection -- accepts
     ("asset: text/css", True, lambda: asset_rejection("text/css")),
     ("asset: text/javascript", True, lambda: asset_rejection("text/javascript")),
@@ -245,18 +271,28 @@ SELF_TEST_CASES = [
     ("asset: text/html (the sign-in page served as a stylesheet)",
      False, lambda: asset_rejection("text/html")),
     ("asset: no Content-Type at all", False, lambda: asset_rejection(None)),
+    # Composed with media_type, because that is how main() calls it. Without these,
+    # dropping the ;-split or the .lower() leaves every case above passing while a
+    # real `text/html; charset=utf-8` sign-in page is accepted.
+    ("asset: header parsed -- text/css; charset=utf-8",
+     True, lambda: asset_rejection(media_type({"Content-Type": "text/css; charset=utf-8"}))),
+    ("asset: header parsed -- TEXT/HTML; charset=utf-8",
+     False, lambda: asset_rejection(media_type({"Content-Type": "TEXT/HTML; charset=utf-8"}))),
+    # hsts_rejection
+    ("hsts: max-age=2592000",
+     True, lambda: hsts_rejection({"Strict-Transport-Security": "max-age=2592000"})),
+    ("hsts: header absent", False, lambda: hsts_rejection({})),
+    ("hsts: max-age=0 (present but disabled)",
+     False, lambda: hsts_rejection({"Strict-Transport-Security": "max-age=0"})),
 ]
 
 
 def self_test():
     """Prove this script's decisions can fail, without a network or a deploy.
 
-    Neither deploy script had any test, and deploy.yml triggers only on push to main --
-    so a syntax error or a weakened assertion was first observed ON main, mid-deploy.
-    This runs before the gating test step, so it stops the job before anything ships.
-
-    lessons.md, "A negative check needs a control, or it cannot fail": the acceptance
-    cases above are that control.
+    Covers the extracted predicates ONLY -- not fetch(), fetch_root() or main(), which
+    need a network. A refactor that changes fetch()'s arity is not caught here; the
+    live run is what catches that.
     """
     print("self-test: %d case(s)" % len(SELF_TEST_CASES))
     failures = []
@@ -329,18 +365,15 @@ def main(argv=None):
     print("root page (warm-up budget %ds):" % args.warmup_seconds)
     body, landed, root_headers = fetch_root(base, args.warmup_seconds, args.timeout)
 
-    # The only thing watching ASPNETCORE_ENVIRONMENT. It is absent on the live site, so
-    # the container runs Production by framework default -- which is what makes UseHsts()
-    # and the Key Vault key-ring encryption fire. Adding it as an app setting would turn
-    # both off with every response still 200. Unassertable in-process: UseHsts() excludes
-    # localhost by default, measured 2026-09-14.
-    if not root_headers.get("Strict-Transport-Security"):
+    # Unassertable in-process: UseHsts() excludes localhost by default (2026-09-14).
+    hsts = hsts_rejection(root_headers)
+    if hsts:
         fail(
-            "the root page carries no Strict-Transport-Security header.\n"
+            "the root page %s.\n"
             "       UseHsts() only runs outside Development, so the container is no\n"
             "       longer running as Production -- most likely because an\n"
             "       ASPNETCORE_ENVIRONMENT app setting was added. That also disables\n"
-            "       key-ring encryption, which signs every auth cookie."
+            "       key-ring encryption, which signs every auth cookie." % hsts
         )
     print("  [hsts] %s" % root_headers.get("Strict-Transport-Security"))
 

@@ -113,7 +113,7 @@ endorsements.
 
 | Layer | Tool | Version | Notes |
 |---|---|---|---|
-| unit + integration | xUnit | net10.0 | `TenExCards.Tests` — 15 files, 96 tests. **Gates the deploy**: named by path in CI before `Publish`. |
+| unit + integration | xUnit | net10.0 | `TenExCards.Tests` — 17 files, 141 tests. **Gates the deploy**: named by path in CI before `Publish`. |
 | assertions | AwesomeAssertions | — | Apache-2.0 fork of FluentAssertions v7. **Never FluentAssertions** — a licensing rule, see `TenExCards/AGENTS.md`. |
 | integration host | `WebApplicationFactory` | net10.0 | Boots the real `Program.cs` pipeline against EF in-memory, no network. The reason Phase 1's layer is integration rather than e2e. |
 | test doubles | hand-written stubs | — | Only three are permitted: the data provider, the key protector, and the candidate generator. No mocking library, by convention. |
@@ -261,6 +261,13 @@ underlying assumption changes.
   circuits and a gate-side probe would duplicate it at higher cost while coupling the deploy
   script to a framework-internal protocol with no stability contract. **The residue is real**
   — E2E is `continue-on-error`, so a dead circuit still reports green in CI today.
+- **The `Gemini:Models is empty` guard.** `Program.cs` refuses an empty model rotation at
+  builder configuration, and **no test pins that guard** — `appsettings.json` ships a populated
+  array and .NET configuration has no deletion, so no test host can produce the state the guard
+  rejects. `BootPathGuardTests.ShippedModelRotation_IsNotEmpty` asserts the shipped array instead,
+  which catches someone emptying it but would **not** catch the guard being removed. Accepted
+  2026-09-14 as the honest residue rather than faked with a config-source override that would test
+  the override. Re-evaluate if the rotation ever moves out of `appsettings.json`.
 - **An anonymous `403`.** `UseStatusCodePagesWithReExecute("/not-found")` catches every `4xx`,
   so a `403` would render "does not exist". Measured 2026-09-14: it has no trigger. The
   fallback policy *challenges* with a `302` rather than forbidding, and no page carries a
