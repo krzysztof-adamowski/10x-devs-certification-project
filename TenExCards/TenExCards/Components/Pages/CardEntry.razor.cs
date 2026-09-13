@@ -17,6 +17,7 @@ public partial class CardEntry
 
     [Inject] private ICardStore Store { get; set; } = default!;
     [Inject] private IdentityRedirectManager RedirectManager { get; set; } = default!;
+    [Inject] private ILogger<CardEntry> Logger { get; set; } = default!;
 
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
 
@@ -47,13 +48,23 @@ public partial class CardEntry
 
         try
         {
+            // Trimmed to match the triage edit path, which normalises before saving.
             // edited: false — there was no candidate to edit. S-06's edit rate measures generation,
             // so a hand-written card must not count toward it.
+            // CancellationToken.None, as Generate does: a save already in flight should finish, or
+            // "nothing was lost" becomes a lie the learner acts on by retrying.
             await Store.SaveAsync(
-                ownerId, Input.Prompt, Input.Answer, CardOrigin.Manual, false, HttpContext.RequestAborted);
+                ownerId,
+                Input.Prompt.Trim(),
+                Input.Answer.Trim(),
+                CardOrigin.Manual,
+                edited: false,
+                CancellationToken.None);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Manual card save failed for {OwnerId}.", ownerId);
+
             // No redirect on failure: it would clear the form and lose what the learner typed.
             _saveError = "That card could not be saved just now. Nothing was lost — try again.";
             return;

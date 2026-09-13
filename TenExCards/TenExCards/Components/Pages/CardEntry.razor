@@ -10,10 +10,12 @@
 
 <div class="row">
     <div class="col-lg-8">
-        @if (WrittenThisVisit > 0)
+        @* _saveError guard: the tally is a GET-time query value, so without it a failed save
+           renders "saved" directly above "could not be saved". *@
+        @if (_saveError is null && WrittenThisVisit > 0)
         {
             <div class="alert alert-success" role="alert">
-                Card saved. @WrittenThisVisit card@(WrittenThisVisit == 1 ? "" : "s") written this visit.
+                @WrittenThisVisit card@(WrittenThisVisit == 1 ? "" : "s") written this visit.
             </div>
         }
 

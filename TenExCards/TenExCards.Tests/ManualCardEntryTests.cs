@@ -89,6 +89,8 @@ public class ManualCardEntryTests(TenExCardsWebApplicationFactory factory)
         var cards = await CardsForAsync(await OwnerIdAsync(email));
         cards.Should().ContainSingle();
         cards[0].Origin.Should().Be(CardOrigin.Manual, "a hand-written card did not come from generation");
+        cards[0].Edited.Should().BeFalse(
+            "there was no candidate to edit, and S-06's edit rate measures generation");
         cards[0].Prompt.Should().Be("What does a contained database user authenticate against?");
         cards[0].Answer.Should().Be("The database named in its own connection string.");
     }
@@ -129,6 +131,12 @@ public class ManualCardEntryTests(TenExCardsWebApplicationFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, "a refused form re-renders rather than redirecting");
         (await CountForAsync(ownerId)).Should().Be(before, "an over-length field must write no row at all");
+
+        // Naming the limit is the point: a generic save-error banner would pass a status-only check.
+        var expected = overlongPrompt
+            ? $"limited to {CardBounds.MaxPromptCharacters} characters"
+            : $"limited to {CardBounds.MaxAnswerCharacters} characters";
+        (await response.Content.ReadAsStringAsync()).Should().Contain(expected);
     }
 
     [Fact]

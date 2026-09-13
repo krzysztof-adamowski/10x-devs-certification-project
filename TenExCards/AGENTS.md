@@ -119,6 +119,18 @@ and both are silent when wrong:
   post-redirect-gets back to itself carrying `?written=N`, so `F5` re-issues a harmless `GET`. That
   tally is learner-editable and display-only — bind it as a `string`, not `int?`, which throws a
   `500` on a non-numeric value.
+  **This closes refresh, and only refresh.** A double-click on the submit button, or Back-then-Save
+  from the redirect target, still writes two rows: antiforgery tokens are not single-use, and a
+  static form has no circuit to hold the `_busy` guard `Generate.razor.cs` uses on the triage path.
+  It is an **accepted gap, not an oversight** — closing it server-side needs an idempotency key
+  through `ICardStore`, and until `S-04` ships there is no surface on which a learner could delete
+  the duplicate anyway. Revisit it with `S-04`.
+
+`CardEntry` differs from the Identity pages in one respect worth recording: it does **not** carry
+`[ExcludeFromInteractiveRouting]`, which they inherit from their `_Imports.razor`. That marker is
+inert today — `App.razor` never calls `AcceptsInteractiveRouting()` — but if global interactive
+routing is ever adopted, the Identity forms stay statically rendered and this page does not, at
+which point its `HttpContext` cascade is null and the save throws inside a circuit handler.
 
 ### Authorization defaults to protected
 
