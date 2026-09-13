@@ -220,7 +220,7 @@ public partial class Generate : IAsyncDisposable
             // tools, and an over-long prompt reaches Azure SQL as a throw rather than a truncation.
             if (_editing && !CandidateEdit.IsCommittable(prompt, answer))
             {
-                _editValidationMessage = EditRefusalReason(prompt, answer);
+                _editValidationMessage = CardEdit.Validate(prompt, answer).Message;
                 return;
             }
 
@@ -253,13 +253,6 @@ public partial class Generate : IAsyncDisposable
             _busy = false;
         }
     }
-
-    private static string EditRefusalReason(string prompt, string answer) =>
-        string.IsNullOrWhiteSpace(prompt) ? "The prompt cannot be empty."
-        : string.IsNullOrWhiteSpace(answer) ? "The answer cannot be empty."
-        : prompt.Length > CardBounds.MaxPromptCharacters
-            ? $"That prompt is {prompt.Length:N0} characters. The limit is {CardBounds.MaxPromptCharacters:N0}."
-            : $"That answer is {answer.Length:N0} characters. The limit is {CardBounds.MaxAnswerCharacters:N0}.";
 
     private async Task RejectAsync()
     {

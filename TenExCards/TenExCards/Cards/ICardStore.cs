@@ -17,4 +17,30 @@ public interface ICardStore
         CancellationToken ct);
 
     Task<int> CountForOwnerAsync(string ownerId, CancellationToken ct);
+
+    /// <summary>
+    /// Newest first. A null, empty or whitespace term means "most recent" — search and the default
+    /// list are one query, so there is no second shape that could be written without the filter.
+    /// </summary>
+    Task<IReadOnlyList<Card>> FindForOwnerAsync(
+        string ownerId,
+        string? term,
+        int limit,
+        CancellationToken ct);
+
+    Task<Card?> GetForOwnerAsync(string ownerId, Guid id, CancellationToken ct);
+
+    /// <summary>
+    /// <c>false</c> is "no row of yours matched" — not yours and already gone are deliberately
+    /// indistinguishable, because separating them leaks another account's card existing.
+    /// </summary>
+    Task<bool> UpdateForOwnerAsync(
+        string ownerId,
+        Guid id,
+        string prompt,
+        string answer,
+        CancellationToken ct);
+
+    /// <inheritdoc cref="UpdateForOwnerAsync"/>
+    Task<bool> DeleteForOwnerAsync(string ownerId, Guid id, CancellationToken ct);
 }

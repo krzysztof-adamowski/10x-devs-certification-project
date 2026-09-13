@@ -72,6 +72,13 @@ builder.Services.AddOptions<GenerationOptions>()
 builder.Services.Configure<GeminiOptions>(
     builder.Configuration.GetSection(GeminiOptions.SectionName));
 
+// The cap on /cards. Validated at boot for the same reason as above: a zero here would render an
+// empty saved-card list that looks like data loss.
+builder.Services.AddOptions<CardOptions>()
+    .Bind(builder.Configuration.GetSection(CardOptions.SectionName))
+    .Validate(o => o.MaxResults > 0, "Cards:MaxResults must be positive.")
+    .ValidateOnStart();
+
 if (!e2e)
 {
     // Unconditional, unlike the key-identifier guard below: a development machine does need a real API
