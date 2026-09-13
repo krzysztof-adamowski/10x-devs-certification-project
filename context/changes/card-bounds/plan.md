@@ -385,12 +385,12 @@ against `sqldb-tenexcards-dev` beyond the ordinary local run.
 
 #### Automated
 
-- [ ] 2.1 `main` workflow run green across the full step list
-- [ ] 2.2 `scripts/verify_deploy.py` passes in that run
+- [x] 2.1 `main` workflow run green across the full step list
+- [x] 2.2 `scripts/verify_deploy.py` passes in that run
 
 #### Manual
 
-- [ ] 2.3 Live generation and accept still work
-- [ ] 2.4 Live `Cards` columns unchanged at `nvarchar(500)` / `nvarchar(1000)`
-- [ ] 2.5 Startup log reports no pending migrations
-- [ ] 2.6 `TenExCards/AGENTS.md` states the rule and names the three readers
+- [x] 2.3 Live generation and accept still work
+- [x] 2.4 Live `Cards` columns unchanged at `nvarchar(500)` / `nvarchar(1000)`
+- [x] 2.5 Startup log reports no pending migrations
+- [x] 2.6 `TenExCards/AGENTS.md` states the rule and names the three readers
